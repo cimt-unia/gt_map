@@ -1,4 +1,4 @@
-# Glasser-Tian fMRI Atlas (GT-MAP)
+# Glasser-Tian fMRI Atlas
 
 A robust, memory-efficient fMRI parcellation tool using:
 - **Glasser et al. (2016)**: 360 cortical regions  
@@ -130,4 +130,5 @@ MIT License — see [`LICENSE`](LICENSE) for details.
 
 - **Nilearn team** for robust, open-source neuroimaging utilities  
   https://nilearn.github.io/
+
 
