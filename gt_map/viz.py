@@ -9,6 +9,7 @@ import nibabel as nib
 from matplotlib.lines import Line2D
 from pathlib import Path
 from typing import Union, List, Tuple, Optional
+import warnings
 
 # Internal imports
 from .core import GlasserTianParcellator
