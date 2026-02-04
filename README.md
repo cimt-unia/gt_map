@@ -37,7 +37,7 @@ pip install git+https://github.com/cimt-unia/gt_map.git
 
 ## Usage
 
-### Single subject (using bundled atlases)
+### Example
 ```python
 from gt_map import GlasserTianParcellator
 
@@ -53,42 +53,32 @@ ts = parcellator.parcellate_subject(
 # ts.shape → (150, 414)
 ```
 
-### Use custom atlases (optional)
+
+
+
+### Visualization
+
+You can visualize regions of interest (ROIs) and their functional connectivity using the built-in plotting utilities:
+
 ```python
-parcellator = GlasserTianParcellator(atlas_dir="/path/to/custom/atlases")
+from gt_map import plot_selected_rois, plot_two_roi_connectivity
+
+# ROI plot
+plot_selected_rois([0, 1, 403, 405])
+
+# Connectivity plot
+plot_two_roi_connectivity(35, 413, weight=0.99)
 ```
 
-### Batch processing
-```python
-fmri_files = ["sub-01.nii.gz", "sub-02.nii.gz", ...]
-trs = [2.5, 2.0, ...]
+These functions render brain maps overlaid with selected ROIs or pairwise connectivity strengths, facilitating rapid quality control and exploratory analysis.
 
-data, valid_idx = parcellator.process_dataset(
-    fmri_paths=fmri_files,
-    tr_values=trs,
-    n_jobs=8
-)
-# data: list of (150, 414) arrays
-# valid_idx: indices of successfully processed subjects
-```
 
-### Phenotype standardization
-```python
-from gt_map import create_analysis_phenotype
-
-phenotype = create_analysis_phenotype(
-    df,
-    eid_col='SUB_ID',
-    age_col='AGE_AT_SCAN',
-    sex_col='SEX',
-    target_col='DX_GROUP'
-)
-# Output: ['eid', 'Age', 'Sex', 'Target']
-```
 
 ---
 
-## Bundled Atlas Details
+
+
+## Details
 
 The package includes the following files in **MNI152NLin6Asym** space:
 - `glasser_360_MNI152NLin6Asym.nii.gz` (cortical, 360 ROIs)
@@ -109,15 +99,14 @@ Many pipelines **reject** subjects with non-standard TR or short durations. GT-M
 
 This maximizes usable data while maintaining methodological rigor—embodying a **“Repair—Not Reject”** philosophy.
 
----
 
-## 📄 License
 
-MIT License — see [`LICENSE`](LICENSE) for details.
 
 ---
 
-## 🙌 Acknowledgments
+
+
+## References
 
 - **Glasser et al. (2016)**  
   *A multi-modal parcellation of human cerebral cortex*  
@@ -133,6 +122,7 @@ MIT License — see [`LICENSE`](LICENSE) for details.
 
 
 <img width="893" height="370" alt="image" src="https://github.com/user-attachments/assets/f6c7a6a6-f8ab-423e-b2fb-52f023ce39e0" />
+
 
 
 
