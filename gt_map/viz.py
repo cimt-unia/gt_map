@@ -13,6 +13,9 @@ from typing import Union, List, Tuple, Optional
 # Internal imports
 from .core import GlasserTianParcellator
 
+# Suppress NumPy masked array warnings that commonly occur with neuroimaging data
+warnings.filterwarnings('ignore', message='.*converting a masked element to nan.*', category=UserWarning)
+
 
 def _get_adaptive_cut_coords(atlas_img: nib.Nifti1Image, labels: List[int]) -> Tuple[int, int, int]:
     """
