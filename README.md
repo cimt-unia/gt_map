@@ -132,3 +132,10 @@ MIT License — see [`LICENSE`](LICENSE) for details.
   https://nilearn.github.io/
 
 
+<img width="893" height="370" alt="image" src="https://github.com/user-attachments/assets/f6c7a6a6-f8ab-423e-b2fb-52f023ce39e0" />
+
+
+
+
+
+
