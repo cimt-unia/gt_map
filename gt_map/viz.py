@@ -1,9 +1,5 @@
 # gt_map/viz.py
 
-"""
-Visualization utilities for Glasser-Tian parcellation.
-Provides high-level plotting of selected ROIs with adaptive slicing.
-"""
 
 import numpy as np
 import pandas as pd
@@ -13,7 +9,7 @@ from nilearn.image import new_img_like
 import nibabel as nib
 from matplotlib.lines import Line2D
 
-# Internal imports — relative to package
+# Internal import — relative to package
 from .core import GlasserTianParcellator
 
 
@@ -97,10 +93,10 @@ def plot_selected_rois(
         Global ROI indices (0–359: Glasser; 360–413: Tian).
     title_prefix : str
         Prefix for plot titles.
-    glasser_cut_coords : tuple or None
-        Cut coordinates for cortical view. If default `(5, -80, 10)` is used,
+    glasser_cut_coords : tuple, optional
+        Cut coordinates for cortical view. If the default `(5, -80, 10)` is used,
         adaptive coordinates are computed automatically.
-    tian_cut_coords : tuple
+    tian_cut_coords : tuple, optional
         Cut coordinates for subcortical view.
     parcellator : GlasserTianParcellator, optional
         Reuse an existing instance; if None, a new one is created.
@@ -108,17 +104,28 @@ def plot_selected_rois(
     if isinstance(indices, int):
         indices = [indices]
 
+    # Validate indices
     for idx in indices:
         if not (0 <= idx <= 413):
             raise ValueError(f"Index {idx} out of range (0–413)")
 
     # Use provided or instantiate new parcellator
     parc = parcellator or GlasserTianParcellator()
-    roi_df = pd.read_csv(parc.atlas_dir / "roi_networks.csv")
 
+    # Load visualization-specific metadata
+    roi_networks_path = parc.atlas_dir / "roi_networks.csv"
+    if not roi_networks_path.exists():
+        raise FileNotFoundError(
+            f"Required file 'roi_networks.csv' not found in {parc.atlas_dir}. "
+            "This file is needed for region names and functional annotations."
+        )
+    roi_df = pd.read_csv(roi_networks_path)
+
+    # Separate cortical (Glasser) and subcortical (Tian)
     glasser_indices = [i for i in indices if 0 <= i <= 359]
     tian_indices = [i for i in indices if 360 <= i <= 413]
 
+    # Print user-friendly ROI info
     print(f"\nPlotting {len(indices)} ROIs:")
     for idx in sorted(indices):
         row = roi_df.iloc[idx]
@@ -126,9 +133,9 @@ def plot_selected_rois(
         roi_code = row['roi_name']
         print(f"  • {full_name}, {roi_code}, (Index: {idx})")
 
-    # Cortical
+    # Plot cortical ROIs
     if glasser_indices:
-        glasser_labels = [idx + 1 for idx in glasser_indices]
+        glasser_labels = [idx + 1 for idx in glasser_indices]  # Glasser labels are 1-based
         DEFAULT_GLASSER = (5, -80, 10)
         if glasser_cut_coords == DEFAULT_GLASSER:
             glasser_img = nib.load(parc.glasser_nii)
@@ -147,9 +154,9 @@ def plot_selected_rois(
             cmap_name="coolwarm"
         )
 
-    # Subcortical
+    # Plot subcortical ROIs
     if tian_indices:
-        tian_labels = [idx - 360 + 1 for idx in tian_indices]
+        tian_labels = [idx - 360 + 1 for idx in tian_indices]  # Tian labels are 1-based
         _plot_atlas_rois(
             atlas_img=nib.load(parc.tian_nii),
             labels=tian_labels,
@@ -159,5 +166,4 @@ def plot_selected_rois(
             cut_coords=tian_cut_coords,
             cmap_name="cividis"
         )
-
     
