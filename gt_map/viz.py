@@ -7,37 +7,84 @@ from nilearn import plotting
 from nilearn.image import new_img_like
 import nibabel as nib
 from matplotlib.lines import Line2D
+from pathlib import Path
+from typing import Union, List, Tuple, Optional
 
 # Internal imports
 from .core import GlasserTianParcellator
 
 
-def _get_adaptive_cut_coords(atlas_img, labels):
-    """Compute center-of-mass cut coordinates for selected labels."""
+def _get_adaptive_cut_coords(atlas_img: nib.Nifti1Image, labels: List[int]) -> Tuple[int, int, int]:
+    """
+    Compute center-of-mass cut coordinates for selected labels.
+    
+    Parameters
+    ----------
+    atlas_img : nib.Nifti1Image
+        The atlas NIfTI image
+    labels : List[int]
+        ROI labels to compute center of mass for
+        
+    Returns
+    -------
+    Tuple[int, int, int]
+        MNI coordinates (x, y, z) rounded to integers
+    """
     atlas_data = atlas_img.get_fdata().astype(int)
     mask = np.isin(atlas_data, labels)
+    
     if not np.any(mask):
         return (0, 0, 0)
+    
     voxels = np.argwhere(mask)
     com_vox = voxels.mean(axis=0)
     com_mni = np.dot(atlas_img.affine, np.append(com_vox, 1))[:3]
+    
     return tuple(com_mni.round().astype(int))
 
 
-def _get_roi_center(atlas_img, roi_label):
-    """Compute MNI coordinates (x, y, z) of an ROI's center of mass."""
+def _get_roi_center(atlas_img: nib.Nifti1Image, roi_label: int) -> Tuple[int, int, int]:
+    """
+    Compute MNI coordinates (x, y, z) of an ROI's center of mass.
+    
+    Parameters
+    ----------
+    atlas_img : nib.Nifti1Image
+        The atlas NIfTI image
+    roi_label : int
+        The ROI label to find center for
+        
+    Returns
+    -------
+    Tuple[int, int, int]
+        MNI coordinates (x, y, z) rounded to integers
+    """
     data = atlas_img.get_fdata().astype(int)
     mask = (data == roi_label)
+    
     if not np.any(mask):
         return (0, 0, 0)
+    
     voxels = np.argwhere(mask)
     com_vox = voxels.mean(axis=0)
     com_mni = np.dot(atlas_img.affine, np.append(com_vox, 1))[:3]
+    
     return tuple(com_mni.round().astype(int))
 
 
-def _create_legend_top_right(ax, roi_names_full, colors):
-    """Add a compact legend in the top-right corner."""
+def _create_legend_top_right(ax: plt.Axes, roi_names_full: List[str], colors: List) -> None:
+    """
+    Add a compact legend in the top-right corner.
+    
+    Parameters
+    ----------
+    ax : plt.Axes
+        The axes to add legend to
+    roi_names_full : List[str]
+        ROI names for legend labels
+    colors : List
+        Colors for legend markers
+    """
     handles = [
         Line2D([0], [0], marker='s', color='w', markerfacecolor=color,
                markersize=10, linewidth=0, label=name)
@@ -56,11 +103,46 @@ def _create_legend_top_right(ax, roi_names_full, colors):
     )
 
 
-def _plot_atlas_rois(atlas_img, labels, roi_indices, roi_df, title, cut_coords, cmap_name):
-    """Plot ROIs from a single atlas."""
+def _plot_atlas_rois(
+    atlas_img: nib.Nifti1Image,
+    labels: List[int],
+    roi_indices: List[int],
+    roi_df: pd.DataFrame,
+    title: str,
+    cut_coords: Tuple[int, int, int],
+    cmap_name: str
+) -> None:
+    """
+    Plot ROIs from a single atlas.
+    
+    Parameters
+    ----------
+    atlas_img : nib.Nifti1Image
+        The atlas image
+    labels : List[int]
+        Atlas-specific labels to plot
+    roi_indices : List[int]
+        Global ROI indices for metadata lookup
+    roi_df : pd.DataFrame
+        DataFrame with ROI metadata
+    title : str
+        Plot title
+    cut_coords : Tuple[int, int, int]
+        MNI coordinates for slice positions
+    cmap_name : str
+        Matplotlib colormap name
+    """
     atlas_data = atlas_img.get_fdata().astype(int)
     mask = np.isin(atlas_data, labels)
-    selected_data = np.where(mask, atlas_data, 0).astype(np.int32)
+    
+    # Fix for single ROI grey color issue:
+    # - Single ROI: normalize to intensity=1 for vivid color
+    # - Multiple ROIs: preserve original labels for differentiation
+    if len(labels) == 1:
+        selected_data = np.where(mask, 1, 0).astype(np.int32)
+    else:
+        selected_data = np.where(mask, atlas_data, 0).astype(np.int32)
+    
     selected_img = new_img_like(atlas_img, selected_data)
 
     plt.figure(figsize=(12, 8))
@@ -74,30 +156,57 @@ def _plot_atlas_rois(atlas_img, labels, roi_indices, roi_df, title, cut_coords, 
         cmap=cmap_name
     )
 
-    roi_names_full = [f"{roi_df.iloc[idx]['roi_name']}" for idx in roi_indices]
+    roi_names_full = [roi_df.iloc[idx]['roi_name'] for idx in roi_indices]
 
+    # Handle different matplotlib versions
     try:
         cmap = plt.colormaps.get_cmap(cmap_name)
     except AttributeError:
         cmap = plt.cm.get_cmap(cmap_name)
 
     n = len(roi_names_full)
-    colors = cmap(np.linspace(0, 1, n)) if n > 1 else [cmap(0.5)]
+    # Single ROI: use vivid color from colormap's upper range
+    # Multiple ROIs: distribute across colormap
+    if n == 1:
+        colors = [cmap(0.8)]  # Use bright end of colormap
+    else:
+        colors = cmap(np.linspace(0, 1, n))
 
     _create_legend_top_right(plt.gca(), roi_names_full, colors)
     plotting.show()
 
 
 def plot_selected_rois(
-    indices,
-    title_prefix="Selected ROIs",
-    glasser_cut_coords=(5, -80, 10),
-    tian_cut_coords=(0, 10, -8),
-    parcellator=None
-):
+    indices: Union[int, List[int]],
+    title_prefix: str = "Selected ROIs",
+    glasser_cut_coords: Tuple[int, int, int] = (5, -80, 10),
+    tian_cut_coords: Tuple[int, int, int] = (0, 10, -8),
+    parcellator: Optional[GlasserTianParcellator] = None
+) -> None:
     """
     Plot selected ROIs by global index (0–413).
+    
+    Parameters
+    ----------
+    indices : int or List[int]
+        Global ROI indices to plot (0–413)
+    title_prefix : str, default="Selected ROIs"
+        Prefix for plot titles
+    glasser_cut_coords : Tuple[int, int, int], default=(5, -80, 10)
+        Cut coordinates for cortical plots (auto-adjusted if default)
+    tian_cut_coords : Tuple[int, int, int], default=(0, 10, -8)
+        Cut coordinates for subcortical plots
+    parcellator : GlasserTianParcellator, optional
+        Existing parcellator instance (creates new if None)
+        
+    Raises
+    ------
+    ValueError
+        If any index is outside range 0–413
+    FileNotFoundError
+        If roi_networks.csv is missing
     """
+    # Normalize to list
     if isinstance(indices, int):
         indices = [indices]
 
@@ -115,22 +224,24 @@ def plot_selected_rois(
         raise FileNotFoundError(f"Missing roi_networks.csv at {roi_df_path}")
     roi_df = pd.read_csv(roi_df_path)
 
-    # Separate cortical and subcortical
+    # Separate cortical (0-359) and subcortical (360-413)
     glasser_indices = [i for i in indices if 0 <= i <= 359]
     tian_indices = [i for i in indices if 360 <= i <= 413]
 
     # Print user-friendly info
-    print(f"\nPlotting {len(indices)} ROIs:")
+    print(f"\nPlotting {len(indices)} ROI{'s' if len(indices) != 1 else ''}:")
     for idx in sorted(indices):
         row = roi_df.iloc[idx]
         full_name = row['region_full_name']
         roi_code = row['roi_name']
         print(f"  • {full_name}, {roi_code}, (Index: {idx})")
 
-    # Plot cortical
+    # Plot cortical ROIs
     if glasser_indices:
         glasser_labels = [idx + 1 for idx in glasser_indices]
         DEFAULT_GLASSER = (5, -80, 10)
+        
+        # Auto-adjust cut coords if using default
         if glasser_cut_coords == DEFAULT_GLASSER:
             glasser_img = nib.load(parc.glasser_nii)
             cut_coords = _get_adaptive_cut_coords(glasser_img, glasser_labels)
@@ -148,7 +259,7 @@ def plot_selected_rois(
             cmap_name="coolwarm"
         )
 
-    # Plot subcortical
+    # Plot subcortical ROIs
     if tian_indices:
         tian_labels = [idx - 360 + 1 for idx in tian_indices]
         _plot_atlas_rois(
@@ -163,8 +274,13 @@ def plot_selected_rois(
 
 
 def plot_two_roi_connectivity(
-    roi_index_1, roi_index_2, weight=1.0, title=None, save_path=None, parcellator=None
-):
+    roi_index_1: int,
+    roi_index_2: int,
+    weight: float = 1.0,
+    title: Optional[str] = None,
+    save_path: Optional[Union[str, Path]] = None,
+    parcellator: Optional[GlasserTianParcellator] = None
+) -> None:
     """
     Plot a single connection between two ROIs with beautiful purple aesthetics.
     
@@ -172,14 +288,19 @@ def plot_two_roi_connectivity(
     ----------
     roi_index_1, roi_index_2 : int
         Global ROI indices (0–413)
-    weight : float
-        Connection strength (-1 to 1)
+    weight : float, default=1.0
+        Connection strength (typically -1 to 1)
     title : str, optional
-        Plot title (if None, auto-generated from ROI names)
+        Plot title (auto-generated from ROI names if None)
     save_path : str or Path, optional
-        Save figure to this path
+        Path to save figure (displays only if None)
     parcellator : GlasserTianParcellator, optional
-        Reuse an existing instance; if None, a new one is created.
+        Existing parcellator instance (creates new if None)
+        
+    Raises
+    ------
+    ValueError
+        If any index is outside range 0–413
     """
     # Validate indices
     for idx in [roi_index_1, roi_index_2]:
@@ -188,37 +309,43 @@ def plot_two_roi_connectivity(
 
     # Use provided or instantiate new parcellator
     parc = parcellator or GlasserTianParcellator()
-    roi_df = pd.read_csv(parc.atlas_dir / "roi_networks.csv")
+    
+    # Load ROI metadata
+    roi_df_path = parc.atlas_dir / "roi_networks.csv"
+    if not roi_df_path.exists():
+        raise FileNotFoundError(f"Missing roi_networks.csv at {roi_df_path}")
+    roi_df = pd.read_csv(roi_df_path)
 
-    # Get atlas images and labels
-    def get_atlas_and_label(idx):
-        if 0 <= idx <= 359:  # Glasser
+    # Helper: get atlas image and label for an index
+    def get_atlas_and_label(idx: int) -> Tuple[nib.Nifti1Image, int]:
+        """Return (atlas_img, atlas_label) for global index."""
+        if 0 <= idx <= 359:  # Glasser (cortical)
             return nib.load(parc.glasser_nii), idx + 1
-        else:  # Tian
+        else:  # Tian (subcortical)
             return nib.load(parc.tian_nii), idx - 360 + 1
 
     img1, label1 = get_atlas_and_label(roi_index_1)
     img2, label2 = get_atlas_and_label(roi_index_2)
 
-    # Get MNI coordinates
+    # Get MNI coordinates for each ROI
     coord1 = _get_roi_center(img1, label1)
     coord2 = _get_roi_center(img2, label2)
 
-    # ROI info
+    # Extract ROI metadata
     name1 = roi_df.iloc[roi_index_1]['region_full_name']
     name2 = roi_df.iloc[roi_index_2]['region_full_name']
     roi_code1 = roi_df.iloc[roi_index_1]['roi_name']
     roi_code2 = roi_df.iloc[roi_index_2]['roi_name']
 
-    # Build adjacency matrix
+    # Build 2x2 adjacency matrix
     adj_matrix = np.array([[0, weight], [weight, 0]])
 
-    # Node colors: purple scheme
+    # Node colors: purple aesthetic
     color1 = "#96336E"  # Deep magenta-purple
     color2 = "#5b85df"  # Complementary blue-purple
     node_colors = [color1, color2]
 
-    # Create figure
+    # Create figure with light background
     fig = plt.figure(figsize=(18, 12), facecolor='#faf9fc')
 
     # Plot connectome
@@ -244,12 +371,13 @@ def plot_two_roi_connectivity(
         figure=fig
     )
 
-    # Legend
+    # Create legend labels
     legend_labels = [
         f"{roi_code1} • {name1}",
         f"{roi_code2} • {name2}"
     ]
 
+    # Create legend handles with styled markers
     legend_handles = [
         Line2D([0], [0], marker='o', color='w',
                markerfacecolor=color1, markersize=20,
@@ -261,6 +389,7 @@ def plot_two_roi_connectivity(
                label=legend_labels[1], linestyle='')
     ]
 
+    # Add styled legend
     legend = fig.legend(
         handles=legend_handles,
         loc='upper right',
@@ -275,14 +404,20 @@ def plot_two_roi_connectivity(
         borderpad=1,
         labelspacing=1.2
     )
+    
+    # Style legend text
     for text in legend.get_texts():
         text.set_color("#110931")
         text.set_fontfamily('sans-serif')
 
-
+    # Ensure background color consistency
     fig.patch.set_facecolor('#faf9fc')
 
-    # Save if requested
+    # Add custom title if provided
+    if title:
+        fig.suptitle(title, fontsize=24, color="#110931", y=0.98)
+
+    # Save or display
     if save_path:
         plt.savefig(
             save_path,
