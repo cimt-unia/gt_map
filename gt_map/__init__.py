@@ -5,7 +5,7 @@ from pathlib import Path
 from .core import GlasserTianParcellator
 from .utils import resample_timeseries, create_analysis_phenotype
 from .config import set_thread_limit
-from .viz import plot_selected_rois  
+from .viz import plot_selected_rois, plot_two_roi_connectivity
 
 def get_bundled_atlas_dir() -> Path:
     try:
@@ -30,3 +30,4 @@ __all__ = [
     "plot_two_roi_connectivity"
 ]
     
+
