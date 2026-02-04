@@ -58,7 +58,7 @@ ts = parcellator.parcellate_subject(
 
 ### Visualization
 
-You can visualize regions of interest (ROIs) and their functional connectivity using the built-in plotting utilities:
+
 
 ```python
 from gt_map import plot_selected_rois, plot_two_roi_connectivity
@@ -122,6 +122,7 @@ This maximizes usable data while maintaining methodological rigor—embodying a 
 
 
 <img width="893" height="370" alt="image" src="https://github.com/user-attachments/assets/f6c7a6a6-f8ab-423e-b2fb-52f023ce39e0" />
+
 
 
 
