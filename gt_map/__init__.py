@@ -26,5 +26,7 @@ __all__ = [
     "create_analysis_phenotype",
     "set_thread_limit",
     "get_bundled_atlas_dir",
-    "plot_selected_rois"  
+    "plot_selected_rois",
+    "plot_two_roi_connectivity"
 ]
+    
