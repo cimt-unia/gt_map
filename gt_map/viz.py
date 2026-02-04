@@ -279,16 +279,6 @@ def plot_two_roi_connectivity(
         text.set_color("#110931")
         text.set_fontfamily('sans-serif')
 
-    # Style axes (especially colorbar)
-    for ax in fig.get_axes():
-        ax.tick_params(colors='#110931', labelsize=15)
-        if ax.get_ylabel() == '':  # Nilearn often sets empty ylabel; we label it
-            ax.set_ylabel(
-                'Connection Strength',
-                color='#110931',
-                fontsize=11,
-                fontweight='semibold'
-            )
 
     fig.patch.set_facecolor('#faf9fc')
 
