@@ -1,6 +1,5 @@
 # gt_map/viz.py
 
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,11 +7,9 @@ from nilearn import plotting
 from nilearn.image import new_img_like
 import nibabel as nib
 from matplotlib.lines import Line2D
-from pathlib import Path
 
 # Internal imports
 from .core import GlasserTianParcellator
-from . import get_bundled_atlas_dir
 
 
 def _get_adaptive_cut_coords(atlas_img, labels):
@@ -217,11 +214,11 @@ def plot_two_roi_connectivity(
     adj_matrix = np.array([[0, weight], [weight, 0]])
 
     # Node colors: purple scheme
-    color1 = "#96336E" if roi_index_1 <= 359 else "#96336E"
-    color2 = "#5b85df" if roi_index_2 <= 359 else "#5b85df"
+    color1 = "#96336E"  # Deep magenta-purple
+    color2 = "#5b85df"  # Complementary blue-purple
     node_colors = [color1, color2]
 
-    # figure
+    # Create figure
     fig = plt.figure(figsize=(18, 12), facecolor='#faf9fc')
 
     # Plot connectome
@@ -254,12 +251,12 @@ def plot_two_roi_connectivity(
     ]
 
     legend_handles = [
-        Line2D([0], [0], marker='o', color='w', 
+        Line2D([0], [0], marker='o', color='w',
                markerfacecolor=color1, markersize=20,
                markeredgecolor='#2d1b4e', markeredgewidth=2,
                label=legend_labels[0], linestyle=''),
-        Line2D([0], [0], marker='o', color='w', 
-               markerface, markersize=20,
+        Line2D([0], [0], marker='o', color='w',
+               markerfacecolor=color2, markersize=20,
                markeredgecolor='#2d1b4e', markeredgewidth=2,
                label=legend_labels[1], linestyle='')
     ]
@@ -282,15 +279,20 @@ def plot_two_roi_connectivity(
         text.set_color("#110931")
         text.set_fontfamily('sans-serif')
 
-    # Style axes
+    # Style axes (especially colorbar)
     for ax in fig.get_axes():
         ax.tick_params(colors='#110931', labelsize=15)
-        if ax.get_ylabel():
-            ax.set_ylabel('Connection Strength', color='#110931', fontsize=11, fontweight='semibold')
+        if ax.get_ylabel() == '':  # Nilearn often sets empty ylabel; we label it
+            ax.set_ylabel(
+                'Connection Strength',
+                color='#110931',
+                fontsize=11,
+                fontweight='semibold'
+            )
 
     fig.patch.set_facecolor('#faf9fc')
 
-    # Save
+    # Save if requested
     if save_path:
         plt.savefig(
             save_path,
