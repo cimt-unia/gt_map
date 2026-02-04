@@ -1,22 +1,15 @@
 # gt_map/__init__.py
+
 import importlib.resources as resources
 from pathlib import Path
 from .core import GlasserTianParcellator
 from .utils import resample_timeseries, create_analysis_phenotype
 from .config import set_thread_limit
+from .viz import plot_selected_rois  
 
 def get_bundled_atlas_dir() -> Path:
-    """
-    Return the filesystem path to the directory containing the bundled Glasser+Tian atlas files.
-    
-    Raises
-    ------
-    FileNotFoundError
-        If the bundled data is not found (e.g., package installed incorrectly).
-    """
     try:
-        # Use context manager to safely access the resource
-        with resources.path("gt_map.data", "roi_labels.csv") as p:
+        with resources.path("gt_map.data", "roi_networks.csv") as p:
             return p.parent
     except Exception as e:
         raise FileNotFoundError(
@@ -32,5 +25,6 @@ __all__ = [
     "resample_timeseries",
     "create_analysis_phenotype",
     "set_thread_limit",
-    "get_bundled_atlas_dir"
+    "get_bundled_atlas_dir",
+    "plot_selected_rois"  
 ]
