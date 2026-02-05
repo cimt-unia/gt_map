@@ -249,7 +249,6 @@ def plot_selected_rois(
         if glasser_cut_coords == DEFAULT_GLASSER:
             glasser_img = nib.load(parc.glasser_nii)
             cut_coords = _get_adaptive_cut_coords(glasser_img, glasser_labels)
-            print(f"  → Auto-adjusted cortical cut_coords to: {cut_coords}")
         else:
             cut_coords = glasser_cut_coords
 
