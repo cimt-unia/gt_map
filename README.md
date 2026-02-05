@@ -56,7 +56,7 @@ ts = parcellator.parcellate_subject(
 
 
 
-### Visualization
+### Visuals
 
 
 
@@ -88,17 +88,6 @@ The package includes the following files in **MNI152NLin6Asym** space:
 > These are derived from publicly available sources (see Acknowledgments).  
 > The bundled data enables **zero-configuration usage** while ensuring reproducibility.
 
----
-
-## Scientific Rationale
-
-Many pipelines **reject** subjects with non-standard TR or short durations. GT-MAP **repairs** them by:
-1. Resampling time series to a common temporal grid (fixed TR and duration),
-2. Applying standardization *only after* resampling (to avoid distorting interpolated values),
-3. Skipping only those scans truly too short (< target duration).
-
-This maximizes usable data while maintaining methodological rigor—embodying a **“Repair—Not Reject”** philosophy.
-
 
 
 
@@ -121,7 +110,8 @@ This maximizes usable data while maintaining methodological rigor—embodying a 
   https://nilearn.github.io/
 
 
-<img width="893" height="370" alt="image" src="https://github.com/user-attachments/assets/f6c7a6a6-f8ab-423e-b2fb-52f023ce39e0" />
+
+
 
 
 
