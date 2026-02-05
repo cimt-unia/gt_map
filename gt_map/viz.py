@@ -258,7 +258,7 @@ def plot_selected_rois(
             labels=glasser_labels,
             roi_indices=glasser_indices,
             roi_df=roi_df,
-            title=f"{title_prefix} (Cortical)",
+            title="Cortical",
             cut_coords=cut_coords,
             cmap_name="coolwarm"
         )
@@ -271,7 +271,7 @@ def plot_selected_rois(
             labels=tian_labels,
             roi_indices=tian_indices,
             roi_df=roi_df,
-            title=f"{title_prefix} (Subcortical)",
+            title="Subcortical",
             cut_coords=tian_cut_coords,
             cmap_name="cividis"
         )
