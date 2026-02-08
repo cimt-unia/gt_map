@@ -286,218 +286,97 @@ def plot_selected_rois(
         )
 
 
-def plot_roi_connectivity_2d(
+def plot_connectivity_2d(
     indices: Union[int, List[int]],
     matrix: np.ndarray,
-    parcellator: Optional[Any] = None,
-    top_n: Optional[int] = None,
-    edge_cmap: str = 'Purples',
-    node_cmap: str = 'Pastel1',
-    show_legend: bool = True,
-    show_colorbar: bool = True,
-    title: str = "",
-    save_path: Optional[Union[str, Path]] = None,
+    parcellator: Optional[GlasserTianParcellator] = None,
+    title: str = None,
+    edge_cmap: str = 'RdYlBu_r',
+    node_size: int = 80,
+    display_mode: str = 'ortho'
 ) -> None:
     """
-    2D brain connectivity plot supporting arbitrary ROIs — full parity with 3D version.
+    Plot connectivity between N ROIs using nilearn.plot_connectome.
     
     Parameters
     ----------
     indices : int or list of int
-        Global ROI indices (0–413)
+        Global ROI indices (0-413)
     matrix : np.ndarray
-        Full NxN connectivity matrix (N ≥ max(indices)+1)
+        Full NxN connectivity matrix
     parcellator : GlasserTianParcellator, optional
-    top_n : int, optional
-        Show only top N strongest connections
-    edge_cmap, node_cmap : str
-        Colormaps for edges and nodes (e.g., 'Purples', 'Pastel1')
-    show_legend, show_colorbar : bool
-    title : str
-    save_path : path-like, optional
+        Parcellator instance (creates new if None)
+    title : str, optional
+        Plot title
+    edge_cmap : str
+        Colormap for edges (use diverging for correlation matrices)
+    node_size : int
+        Size of node markers
+    display_mode : str
+        Nilearn display mode ('ortho', 'z', 'x', etc.)
     """
-    from nilearn import plotting
-    from matplotlib.lines import Line2D
-    import plotly.express as px
-    import matplotlib.colors as mcolors
-
-    def _normalize_color(color: Any) -> str:
-        """
-        Convert ANY Plotly color format to Matplotlib-safe hex.
-        Handles: 'rgb(...)', '#hex', [r,g,b] floats (0-1 or 0-255).
-        """
-        # Already hex? Return as-is
-        if isinstance(color, str) and color.startswith('#'):
-            return color
-        
-        # Convert Plotly 'rgb(r,g,b)' → hex
-        if isinstance(color, str) and color.startswith('rgb'):
-            nums = color[4:-1].split(',')
-            r, g, b = [int(x.strip()) for x in nums]
-            return f"#{r:02x}{g:02x}{b:02x}"
-        
-        # Convert float RGB [0-1] or int RGB [0-255] → hex
-        if isinstance(color, (list, tuple, np.ndarray)):
-            arr = np.array(color).flatten()[:3]
-            # Normalize to 0-255 integers
-            if arr.max() <= 1.0:
-                rgb = [int(c * 255) for c in arr]
-            else:
-                rgb = [int(c) for c in arr]
-            return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
-        
-        # Fallback: try Matplotlib's converter
-        try:
-            return mcolors.to_hex(color)
-        except Exception:
-            return '#000000'  # Black fallback
-
+    # Normalize indices
     if isinstance(indices, int):
         indices = [indices]
-    if not indices:
-        raise ValueError("❌ At least one ROI index required.")
-    if parcellator is None:
-        raise ValueError("❌ Parcellator required.")
-
-    # Validate indices
+    
+    # Validate inputs
+    if len(indices) < 2:
+        raise ValueError("At least 2 ROIs required")
     for idx in indices:
         if not (0 <= idx <= 413):
             raise ValueError(f"Index {idx} out of range (0–413)")
     if matrix.shape[0] <= max(indices):
-        raise ValueError("❌ Matrix too small for given indices.")
+        raise ValueError("Matrix too small for given indices")
 
-    # Load metadata
-    roi_df = pd.read_csv(parcellator.atlas_dir / "roi_networks.csv")
-    roi_info = roi_df.iloc[indices].reset_index(drop=True)
+    # Initialize parcellator
+    parc = parcellator or GlasserTianParcellator()
+    roi_df = pd.read_csv(parc.atlas_dir / "roi_networks.csv")
 
-    # Get coordinates — reuse shared helper from viz_3d
-    coords = _get_roi_coords(parcellator, indices)
+    # Get coordinates and colors
+    coords = []
+    node_colors = []
+    print("\nPlotting connections:")
+    
+    for idx in indices:
+        if 0 <= idx <= 359:  # Glasser (cortical)
+            atlas_img = nib.load(parc.glasser_nii)
+            label = idx + 1
+            color = '#e41a1c'  # Red (cortical)
+        else:  # Tian (subcortical)
+            atlas_img = nib.load(parc.tian_nii)
+            label = idx - 360 + 1
+            color = '#377eb8'  # Blue (subcortical)
+        
+        coord = _get_roi_center(atlas_img, label)
+        coords.append(coord)
+        node_colors.append(color)
+        
+        name = roi_df.iloc[idx]['region_full_name']
+        print(f"  • {name} (Idx {idx}) at {coord}")
 
-    # Build adjacency submatrix
+    # Extract submatrix
     sub_indices = np.array(indices)
     adj_sub = matrix[np.ix_(sub_indices, sub_indices)].copy()
-    np.fill_diagonal(adj_sub, 0)  # Remove self-loops
+    np.fill_diagonal(adj_sub, 0)
 
-    # Extract edges
-    edges = []
-    node_degrees = np.zeros(len(indices))
-    n = len(indices)
-    for i in range(n):
-        for j in range(i + 1, n):
-            w = adj_sub[i, j]
-            if w != 0 and np.isfinite(w):
-                edges.append((i, j, w))
-                node_degrees[i] += abs(w)
-                node_degrees[j] += abs(w)
+    # Auto-generate title
+    if title is None:
+        rois = [roi_df.iloc[i]['roi_name'] for i in indices]
+        title = " ↔ ".join(rois[:3]) + ("..." if len(rois) > 3 else "")
 
-    # Apply top_n filtering
-    if top_n and len(edges) > top_n:
-        edges = sorted(edges, key=lambda x: abs(x[2]), reverse=True)[:top_n]
-        adj_sparse = np.zeros_like(adj_sub)
-        for i, j, w in edges:
-            adj_sparse[i, j] = adj_sparse[j, i] = w
-        adj_sub = adj_sparse
-
-    # === NODE COLORS: FULLY MATPLOTLIB-SAFE ===
-    if hasattr(px.colors.qualitative, node_cmap):
-        palette = getattr(px.colors.qualitative, node_cmap)
-    else:
-        palette = px.colors.sample_colorscale(node_cmap, len(indices))
-    
-    node_colors = [_normalize_color(palette[i % len(palette)]) for i in range(len(indices))]
-
-    # Node sizes scaled by degree
-    max_deg = node_degrees.max() if node_degrees.max() > 0 else 1
-    node_sizes = [80 + (deg / max_deg) * 120 for deg in node_degrees]
-
-    # === STYLING: NATURE STYLE ===
-    BG_COLOR = '#ffffff'
-    FONT_FAMILY = "Helvetica, Arial, sans-serif"
-    FONT_COLOR = '#222222'
-
-    fig = plt.figure(figsize=(16, 12), facecolor=BG_COLOR, dpi=150)
-
-    # Plot connectome — CRITICAL FIXES:
-    # 1. Removed edge_vmin/edge_vmax → preserves negative weights
-    # 2. No colorbar styling (nilearn handles internally)
-    display = plotting.plot_connectome(
+    # Plot
+    plotting.plot_connectome(
         adjacency_matrix=adj_sub,
         node_coords=coords,
         node_color=node_colors,
-        node_size=node_sizes,
+        node_size=node_size,
         edge_cmap=edge_cmap,
-        display_mode='ortho',
+        edge_vmin=np.min(adj_sub),
+        edge_vmax=np.max(adj_sub),
+        display_mode=display_mode,
+        title=title,
         black_bg=False,
-        figure=fig,
-        edge_kwargs={'linewidth': 4.0, 'alpha': 0.85},
-        node_kwargs={
-            'edgecolors': '#2d1b4e',
-            'linewidths': 2.8,
-            'alpha': 0.97,
-        },
-        colorbar=show_colorbar,  # Nilearn creates colorbar internally
+        colorbar=True
     )
-
-    # Legend (safe to style - fully under our control)
-    if show_legend:
-        legend_labels = [
-            f"{row['roi_name']} • {row['region_full_name']}"
-            for _, row in roi_info.iterrows()
-        ]
-        legend_handles = [
-            Line2D([0], [0], marker='o', color='w',
-                   markerfacecolor=node_colors[i],
-                   markersize=16,
-                   markeredgecolor='#2d1b4e',
-                   markeredgewidth=2.2,
-                   label=legend_labels[i],
-                   linestyle='')
-            for i in range(len(indices))
-        ]
-
-        legend = fig.legend(
-            handles=legend_handles,
-            loc='upper left',
-            bbox_to_anchor=(0.02, 0.98),
-            fontsize=13,
-            frameon=True,
-            fancybox=False,
-            shadow=False,
-            edgecolor='#e0e0e0',
-            facecolor=BG_COLOR,
-            framealpha=1.0,
-            borderpad=0.7,
-            labelspacing=0.6,
-            ncol=1 if len(indices) <= 6 else 2
-        )
-
-        for text in legend.get_texts():
-            text.set_color(FONT_COLOR)
-            text.set_fontfamily(FONT_FAMILY.split(',')[0])
-
-    # Title
-    if title:
-        fig.suptitle(
-            title,
-            fontsize=22,
-            fontweight='bold',
-            color=FONT_COLOR,
-            y=0.96,
-            fontfamily=FONT_FAMILY.split(',')[0]
-        )
-
-    fig.patch.set_facecolor(BG_COLOR)
-    plt.tight_layout(rect=[0, 0, 1, 0.94])
-
-    # Save
-    if save_path:
-        plt.savefig(
-            save_path,
-            dpi=300,
-            bbox_inches='tight',
-            facecolor=BG_COLOR,
-            edgecolor='none'
-        )
-        print(f"💾 Saved to {save_path}")
-
-    plt.show()
+    plotting.show()
+    print("✅ Plot displayed.")
