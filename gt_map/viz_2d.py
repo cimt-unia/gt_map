@@ -13,6 +13,7 @@ import warnings
 
 # Internal imports
 from .core import GlasserTianParcellator
+from .viz_3d import _get_roi_coords  # ← FIXED: Import shared coordinate function
 
 # Suppress NumPy masked array warnings that commonly occur with neuroimaging data
 warnings.filterwarnings('ignore', message='.*converting a masked element to nan.*', category=UserWarning)
@@ -199,7 +200,7 @@ def plot_selected_rois(
     glasser_cut_coords : Tuple[int, int, int], default=(5, -80, 10)
         Cut coordinates for cortical plots (auto-adjusted if default)
     tian_cut_coords : Tuple[int, int, int], default=(0, 10, -8)
-        Cut coordinates for subcortical plots
+        Cut coordinates for subcortical plots (auto-adjusted if default)
     parcellator : GlasserTianParcellator, optional
         Existing parcellator instance (creates new if None)
         
@@ -262,18 +263,28 @@ def plot_selected_rois(
             cmap_name="coolwarm"
         )
 
-    # Plot subcortical ROIs
+    # Plot subcortical ROIs — NOW WITH ADAPTIVE COORDINATES!
     if tian_indices:
         tian_labels = [idx - 360 + 1 for idx in tian_indices]
+        DEFAULT_TIAN = (0, 10, -8)  # ← Define default
+        
+        # Auto-adjust cut coords if using default
+        if tian_cut_coords == DEFAULT_TIAN:
+            tian_img = nib.load(parc.tian_nii)
+            cut_coords = _get_adaptive_cut_coords(tian_img, tian_labels)
+        else:
+            cut_coords = tian_cut_coords
+
         _plot_atlas_rois(
             atlas_img=nib.load(parc.tian_nii),
             labels=tian_labels,
             roi_indices=tian_indices,
             roi_df=roi_df,
             title="Subcortical",
-            cut_coords=tian_cut_coords,
+            cut_coords=cut_coords,  # ← Now adaptive!
             cmap_name="cividis"
         )
+
 
 def plot_roi_connectivity_2d(
     indices: Union[int, List[int]],
@@ -327,8 +338,8 @@ def plot_roi_connectivity_2d(
     roi_df = pd.read_csv(parcellator.atlas_dir / "roi_networks.csv")
     roi_info = roi_df.iloc[indices].reset_index(drop=True)
 
-    # Get coordinates
-    coords = _get_roi_coords(parcellator, indices)  # Reuse your existing helper!
+    # Get coordinates — NOW WORKS!
+    coords = _get_roi_coords(parcellator, indices)
 
     # Build adjacency submatrix
     sub_indices = np.array(indices)
