@@ -287,96 +287,90 @@ def plot_selected_rois(
 
 
 def plot_roi_connectivity_2d(
-    indices: Union[int, List[int]],
-    matrix: np.ndarray,
-    parcellator: Optional[GlasserTianParcellator] = None,
-    title: str = None,
-    edge_cmap: str = 'RdYlBu_r',
-    node_size: int = 80,
-    display_mode: str = 'ortho'
+    roi_index_1: int,
+    roi_index_2: int,
+    weight: float = 1.0,
+    title: Optional[str] = None,
+    parcellator: Optional["GlasserTianParcellator"] = None,
+    node_colors: Optional[List[str]] = None
 ) -> None:
     """
-    Plot connectivity between N ROIs using nilearn.plot_connectome.
+    Plot a single connection between two ROIs.
     
     Parameters
     ----------
-    indices : int or list of int
+    roi_index_1, roi_index_2 : int
         Global ROI indices (0-413)
-    matrix : np.ndarray
-        Full NxN connectivity matrix
-    parcellator : GlasserTianParcellator, optional
-        Parcellator instance (creates new if None)
+    weight : float
+        Connection strength (for coloring; optional)
     title : str, optional
         Plot title
-    edge_cmap : str
-        Colormap for edges (use diverging for correlation matrices)
-    node_size : int
-        Size of node markers
-    display_mode : str
-        Nilearn display mode ('ortho', 'z', 'x', etc.)
+    parcellator : GlasserTianParcellator, optional
+        Parcellator instance (creates new if None)
+    node_colors : List[str], optional
+        Custom colors for the two nodes (e.g., ['#FF0000', '#0000FF'])
+        If None, uses default: red=cortical, blue=subcortical
     """
-    # Normalize indices
-    if isinstance(indices, int):
-        indices = [indices]
-    
-    # Validate inputs
-    if len(indices) < 2:
-        raise ValueError("At least 2 ROIs required")
-    for idx in indices:
+    # Validate indices
+    for idx in [roi_index_1, roi_index_2]:
         if not (0 <= idx <= 413):
             raise ValueError(f"Index {idx} out of range (0–413)")
-    if matrix.shape[0] <= max(indices):
-        raise ValueError("Matrix too small for given indices")
-
+    
     # Initialize parcellator
     parc = parcellator or GlasserTianParcellator()
     roi_df = pd.read_csv(parc.atlas_dir / "roi_networks.csv")
-
-    # Get coordinates and colors
-    coords = []
-    node_colors = []
-    print("\nPlotting connections:")
     
-    for idx in indices:
-        if 0 <= idx <= 359:  # Glasser (cortical)
-            atlas_img = nib.load(parc.glasser_nii)
-            label = idx + 1
-            color = '#e41a1c'  # Red (cortical)
-        else:  # Tian (subcortical)
-            atlas_img = nib.load(parc.tian_nii)
-            label = idx - 360 + 1
-            color = '#377eb8'  # Blue (subcortical)
-        
-        coord = _get_roi_center(atlas_img, label)
-        coords.append(coord)
-        node_colors.append(color)
-        
-        name = roi_df.iloc[idx]['region_full_name']
-        print(f"  • {name} (Idx {idx}) at {coord}")
-
-    # Extract submatrix
-    sub_indices = np.array(indices)
-    adj_sub = matrix[np.ix_(sub_indices, sub_indices)].copy()
-    np.fill_diagonal(adj_sub, 0)
-
-    # Auto-generate title
-    if title is None:
-        rois = [roi_df.iloc[i]['roi_name'] for i in indices]
-        title = " ↔ ".join(rois[:3]) + ("..." if len(rois) > 3 else "")
-
+    # Get atlas images and labels
+    def get_atlas_and_label(idx):
+        if 0 <= idx <= 359:  # Glasser
+            return nib.load(parc.glasser_nii), idx + 1
+        else:  # Tian
+            return nib.load(parc.tian_nii), idx - 360 + 1
+    
+    img1, label1 = get_atlas_and_label(roi_index_1)
+    img2, label2 = get_atlas_and_label(roi_index_2)
+    
+    # Get MNI coordinates
+    coord1 = _get_roi_center(img1, label1)
+    coord2 = _get_roi_center(img2, label2)
+    
+    # Print info
+    name1 = roi_df.iloc[roi_index_1]['region_full_name']
+    name2 = roi_df.iloc[roi_index_2]['region_full_name']
+    print(f"\nPlotting connection:")
+    print(f"  • {name1} (Idx {roi_index_1}) ↔ {name2} (Idx {roi_index_2})")
+    print(f"  • MNI coordinates: {coord1} ↔ {coord2}")
+    
+    # Build 2x2 adjacency matrix
+    adj_matrix = np.array([
+        [0, weight],
+        [weight, 0]
+    ])
+    
+    # Node colors: custom or default (red=cortical, blue=subcortical)
+    if node_colors is None:
+        color1 = 'red' if roi_index_1 <= 359 else 'blue'
+        color2 = 'red' if roi_index_2 <= 359 else 'blue'
+        node_colors = [color1, color2]
+    else:
+        if len(node_colors) != 2:
+            raise ValueError("node_colors must contain exactly 2 color values")
+    
     # Plot
+    if title is None:
+        title = f"{roi_df.iloc[roi_index_1]['roi_name']} ↔ {roi_df.iloc[roi_index_2]['roi_name']}"
+    
     plotting.plot_connectome(
-        adjacency_matrix=adj_sub,
-        node_coords=coords,
+        adjacency_matrix=adj_matrix,
+        node_coords=[coord1, coord2],
         node_color=node_colors,
-        node_size=node_size,
-        edge_cmap=edge_cmap,
-        edge_vmin=np.min(adj_sub),
-        edge_vmax=np.max(adj_sub),
-        display_mode=display_mode,
+        node_size=80,
+        edge_cmap='RdYlBu_r',
+        edge_vmin=-1,
+        edge_vmax=1,
+        display_mode='ortho',
         title=title,
-        black_bg=False,
-        colorbar=True
+        black_bg=False
     )
     plotting.show()
-    print("✅ Plot displayed.")
+    print("✅ Connection plot displayed.")
