@@ -324,7 +324,7 @@ def plot_roi_connectivity_2d(
     def _normalize_color(color: Any) -> str:
         """
         Convert ANY Plotly color format to Matplotlib-safe hex.
-        Handles: 'rgb(...)', '#hex', [r,g,b] floats, (r,g,b) tuples.
+        Handles: 'rgb(...)', '#hex', [r,g,b] floats (0-1 or 0-255).
         """
         # Already hex? Return as-is
         if isinstance(color, str) and color.startswith('#'):
@@ -338,17 +338,18 @@ def plot_roi_connectivity_2d(
         
         # Convert float RGB [0-1] or int RGB [0-255] → hex
         if isinstance(color, (list, tuple, np.ndarray)):
+            arr = np.array(color).flatten()[:3]
             # Normalize to 0-255 integers
-            if np.max(color) <= 1.0:
-                color = [int(c * 255) for c in color[:3]]
+            if arr.max() <= 1.0:
+                rgb = [int(c * 255) for c in arr]
             else:
-                color = [int(c) for c in color[:3]]
-            return f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
+                rgb = [int(c) for c in arr]
+            return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
         
         # Fallback: try Matplotlib's converter
         try:
             return mcolors.to_hex(color)
-        except:
+        except Exception:
             return '#000000'  # Black fallback
 
     if isinstance(indices, int):
@@ -401,10 +402,8 @@ def plot_roi_connectivity_2d(
     if hasattr(px.colors.qualitative, node_cmap):
         palette = getattr(px.colors.qualitative, node_cmap)
     else:
-        # sample_colorscale returns list of hex/floats
         palette = px.colors.sample_colorscale(node_cmap, len(indices))
     
-    # Normalize ALL colors to hex
     node_colors = [_normalize_color(palette[i % len(palette)]) for i in range(len(indices))]
 
     # Node sizes scaled by degree
@@ -418,14 +417,15 @@ def plot_roi_connectivity_2d(
 
     fig = plt.figure(figsize=(16, 12), facecolor=BG_COLOR, dpi=150)
 
-    # Plot connectome — CRITICAL FIX: Removed edge_vmin/edge_vmax
+    # Plot connectome — CRITICAL FIXES:
+    # 1. Removed edge_vmin/edge_vmax → preserves negative weights
+    # 2. No colorbar styling (nilearn handles internally)
     display = plotting.plot_connectome(
         adjacency_matrix=adj_sub,
         node_coords=coords,
-        node_color=node_colors,          # ✅ Now 100% Matplotlib-safe
+        node_color=node_colors,
         node_size=node_sizes,
         edge_cmap=edge_cmap,
-        # edge_vmin/edge_vmax REMOVED → nilearn auto-computes from data range
         display_mode='ortho',
         black_bg=False,
         figure=fig,
@@ -435,25 +435,10 @@ def plot_roi_connectivity_2d(
             'linewidths': 2.8,
             'alpha': 0.97,
         },
-        colorbar=show_colorbar,
+        colorbar=show_colorbar,  # Nilearn creates colorbar internally
     )
 
-    # Style colorbar
-    if show_colorbar and display.colorbar:
-        cbar = display.colorbar
-        cbar.set_label(
-            'Connection Strength',
-            fontsize=14,
-            fontfamily=FONT_FAMILY.split(',')[0],
-            color=FONT_COLOR,
-            labelpad=12
-        )
-        cbar.ax.tick_params(labelsize=12, colors=FONT_COLOR, pad=6)
-        for spine in cbar.ax.spines.values():
-            spine.set_edgecolor('#e0e0e0')
-            spine.set_linewidth(0.7)
-
-    # Legend
+    # Legend (safe to style - fully under our control)
     if show_legend:
         legend_labels = [
             f"{row['roi_name']} • {row['region_full_name']}"
