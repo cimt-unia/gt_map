@@ -286,7 +286,7 @@ def plot_selected_rois(
         )
 
 
-def plot_connectivity_2d(
+def plot_roi_connectivity_2d(
     indices: Union[int, List[int]],
     matrix: np.ndarray,
     parcellator: Optional[GlasserTianParcellator] = None,
