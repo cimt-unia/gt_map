@@ -1,4 +1,4 @@
-# gt_map/viz.py
+# gt_map/viz_2d.py
 
 import numpy as np
 import pandas as pd
