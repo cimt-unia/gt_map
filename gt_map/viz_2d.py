@@ -8,7 +8,7 @@ from nilearn.image import new_img_like
 import nibabel as nib
 from matplotlib.lines import Line2D
 from pathlib import Path
-from typing import Union, List, Tuple, Optional
+from typing import Union, List, Tuple, Optional, Any
 import warnings
 
 # Internal imports
