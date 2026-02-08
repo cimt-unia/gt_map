@@ -319,6 +319,37 @@ def plot_roi_connectivity_2d(
     from nilearn import plotting
     from matplotlib.lines import Line2D
     import plotly.express as px
+    import matplotlib.colors as mcolors
+
+    def _normalize_color(color: Any) -> str:
+        """
+        Convert ANY Plotly color format to Matplotlib-safe hex.
+        Handles: 'rgb(...)', '#hex', [r,g,b] floats, (r,g,b) tuples.
+        """
+        # Already hex? Return as-is
+        if isinstance(color, str) and color.startswith('#'):
+            return color
+        
+        # Convert Plotly 'rgb(r,g,b)' → hex
+        if isinstance(color, str) and color.startswith('rgb'):
+            nums = color[4:-1].split(',')
+            r, g, b = [int(x.strip()) for x in nums]
+            return f"#{r:02x}{g:02x}{b:02x}"
+        
+        # Convert float RGB [0-1] or int RGB [0-255] → hex
+        if isinstance(color, (list, tuple, np.ndarray)):
+            # Normalize to 0-255 integers
+            if np.max(color) <= 1.0:
+                color = [int(c * 255) for c in color[:3]]
+            else:
+                color = [int(c) for c in color[:3]]
+            return f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
+        
+        # Fallback: try Matplotlib's converter
+        try:
+            return mcolors.to_hex(color)
+        except:
+            return '#000000'  # Black fallback
 
     if isinstance(indices, int):
         indices = [indices]
@@ -338,7 +369,7 @@ def plot_roi_connectivity_2d(
     roi_df = pd.read_csv(parcellator.atlas_dir / "roi_networks.csv")
     roi_info = roi_df.iloc[indices].reset_index(drop=True)
 
-    # Get coordinates — NOW WORKS!
+    # Get coordinates — reuse shared helper from viz_3d
     coords = _get_roi_coords(parcellator, indices)
 
     # Build adjacency submatrix
@@ -358,21 +389,23 @@ def plot_roi_connectivity_2d(
                 node_degrees[i] += abs(w)
                 node_degrees[j] += abs(w)
 
-    # Apply top_n
+    # Apply top_n filtering
     if top_n and len(edges) > top_n:
         edges = sorted(edges, key=lambda x: abs(x[2]), reverse=True)[:top_n]
-        # Rebuild sparse adjacency matrix
         adj_sparse = np.zeros_like(adj_sub)
         for i, j, w in edges:
             adj_sparse[i, j] = adj_sparse[j, i] = w
         adj_sub = adj_sparse
 
-    # === NODE COLORS: IDENTICAL TO 3D ===
+    # === NODE COLORS: FULLY MATPLOTLIB-SAFE ===
     if hasattr(px.colors.qualitative, node_cmap):
         palette = getattr(px.colors.qualitative, node_cmap)
     else:
+        # sample_colorscale returns list of hex/floats
         palette = px.colors.sample_colorscale(node_cmap, len(indices))
-    node_colors = [palette[i % len(palette)] for i in range(len(indices))]
+    
+    # Normalize ALL colors to hex
+    node_colors = [_normalize_color(palette[i % len(palette)]) for i in range(len(indices))]
 
     # Node sizes scaled by degree
     max_deg = node_degrees.max() if node_degrees.max() > 0 else 1
@@ -385,15 +418,14 @@ def plot_roi_connectivity_2d(
 
     fig = plt.figure(figsize=(16, 12), facecolor=BG_COLOR, dpi=150)
 
-    # Plot connectome
+    # Plot connectome — CRITICAL FIX: Removed edge_vmin/edge_vmax
     display = plotting.plot_connectome(
         adjacency_matrix=adj_sub,
         node_coords=coords,
-        node_color=node_colors,
+        node_color=node_colors,          # ✅ Now 100% Matplotlib-safe
         node_size=node_sizes,
         edge_cmap=edge_cmap,
-        edge_vmin=0,  # Purples is sequential → use [0, max]
-        edge_vmax=adj_sub.max() if adj_sub.max() > 0 else 1,
+        # edge_vmin/edge_vmax REMOVED → nilearn auto-computes from data range
         display_mode='ortho',
         black_bg=False,
         figure=fig,
@@ -451,7 +483,7 @@ def plot_roi_connectivity_2d(
             framealpha=1.0,
             borderpad=0.7,
             labelspacing=0.6,
-            ncol=1 if len(indices) <= 6 else 2  # Multi-column for many ROIs
+            ncol=1 if len(indices) <= 6 else 2
         )
 
         for text in legend.get_texts():
