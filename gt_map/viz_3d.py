@@ -64,7 +64,7 @@ def _get_roi_coords(parc: Any, indices: List[int]) -> np.ndarray:
     return np.array(coords)
 
 
-def plot_roi_connectivity_nature(
+def plot_roi_3d_connectivity(
     indices: Union[int, List[int]],
     matrix: np.ndarray,
     parcellator: Any,
@@ -233,7 +233,7 @@ parc = GlasserTianParcellator()
 # Create a Connectivity Matrix
 dummy_matrix = np.random.rand(414, 414)
 
-fig = plot_roi_connectivity_nature(
+fig = plot_roi_3d_connectivity(
     indices=[10, 50, 150, 250, 380],
     matrix=dummy_matrix,
     parcellator=parc,
