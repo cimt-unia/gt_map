@@ -144,10 +144,9 @@ def plot_roi_connectivity_3d(
                 marker=dict(
                     colorscale=edge_cmap, cmin=0, cmax=max_w, showscale=True,
                     colorbar=dict(
-                        title=dict(text='Connection Strength', side='top'),
                         thickness=25,
                         len=0.4,
-                        x=0.85,        # ← PERFECT ALIGNMENT: matches legend x
+                        x=0.80,        # ← PERFECT ALIGNMENT: matches legend x
                         y=0.25,        # ← BOTTOM RIGHT position
                         xanchor='center',
                         yanchor='bottom',
