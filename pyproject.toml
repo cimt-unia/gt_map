@@ -26,13 +26,9 @@ dependencies = [
     "nilearn>=0.9.0",
     "scipy>=1.7",
     "joblib>=1.1",
-]
-
-[project.optional-dependencies]
-viz = [
     "plotly>=5.0",
     "matplotlib>=3.5",
-    "kaleido>=0.2.0"  # for static image export (PNG/SVG/PDF)
+    "kaleido>=0.2.0",   # for saving static figures (PNG/SVG/PDF)
 ]
 
 [project.urls]
