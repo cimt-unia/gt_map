@@ -275,158 +275,199 @@ def plot_selected_rois(
             cmap_name="cividis"
         )
 
-
-def plot_two_roi_connectivity(
-    roi_index_1: int,
-    roi_index_2: int,
-    weight: float = 1.0,
-    title: Optional[str] = None,
+def plot_roi_connectivity_2d(
+    indices: Union[int, List[int]],
+    matrix: np.ndarray,
+    parcellator: Optional[Any] = None,
+    top_n: Optional[int] = None,
+    edge_cmap: str = 'Purples',
+    node_cmap: str = 'Pastel1',
+    show_legend: bool = True,
+    show_colorbar: bool = True,
+    title: str = "",
     save_path: Optional[Union[str, Path]] = None,
-    parcellator: Optional[GlasserTianParcellator] = None
 ) -> None:
     """
-    Plot a single connection between two ROIs with beautiful purple aesthetics.
+    2D brain connectivity plot supporting arbitrary ROIs — full parity with 3D version.
     
     Parameters
     ----------
-    roi_index_1, roi_index_2 : int
+    indices : int or list of int
         Global ROI indices (0–413)
-    weight : float, default=1.0
-        Connection strength (typically -1 to 1)
-    title : str, optional
-        Plot title (auto-generated from ROI names if None)
-    save_path : str or Path, optional
-        Path to save figure (displays only if None)
+    matrix : np.ndarray
+        Full NxN connectivity matrix (N ≥ max(indices)+1)
     parcellator : GlasserTianParcellator, optional
-        Existing parcellator instance (creates new if None)
-        
-    Raises
-    ------
-    ValueError
-        If any index is outside range 0–413
+    top_n : int, optional
+        Show only top N strongest connections
+    edge_cmap, node_cmap : str
+        Colormaps for edges and nodes (e.g., 'Purples', 'Pastel1')
+    show_legend, show_colorbar : bool
+    title : str
+    save_path : path-like, optional
     """
+    from nilearn import plotting
+    from matplotlib.lines import Line2D
+    import plotly.express as px
+
+    if isinstance(indices, int):
+        indices = [indices]
+    if not indices:
+        raise ValueError("❌ At least one ROI index required.")
+    if parcellator is None:
+        raise ValueError("❌ Parcellator required.")
+
     # Validate indices
-    for idx in [roi_index_1, roi_index_2]:
+    for idx in indices:
         if not (0 <= idx <= 413):
             raise ValueError(f"Index {idx} out of range (0–413)")
+    if matrix.shape[0] <= max(indices):
+        raise ValueError("❌ Matrix too small for given indices.")
 
-    # Use provided or instantiate new parcellator
-    parc = parcellator or GlasserTianParcellator()
-    
-    # Load ROI metadata
-    roi_df_path = parc.atlas_dir / "roi_networks.csv"
-    if not roi_df_path.exists():
-        raise FileNotFoundError(f"Missing roi_networks.csv at {roi_df_path}")
-    roi_df = pd.read_csv(roi_df_path)
+    # Load metadata
+    roi_df = pd.read_csv(parcellator.atlas_dir / "roi_networks.csv")
+    roi_info = roi_df.iloc[indices].reset_index(drop=True)
 
-    # Helper: get atlas image and label for an index
-    def get_atlas_and_label(idx: int) -> Tuple[nib.Nifti1Image, int]:
-        """Return (atlas_img, atlas_label) for global index."""
-        if 0 <= idx <= 359:  # Glasser (cortical)
-            return nib.load(parc.glasser_nii), idx + 1
-        else:  # Tian (subcortical)
-            return nib.load(parc.tian_nii), idx - 360 + 1
+    # Get coordinates
+    coords = _get_roi_coords(parcellator, indices)  # Reuse your existing helper!
 
-    img1, label1 = get_atlas_and_label(roi_index_1)
-    img2, label2 = get_atlas_and_label(roi_index_2)
+    # Build adjacency submatrix
+    sub_indices = np.array(indices)
+    adj_sub = matrix[np.ix_(sub_indices, sub_indices)].copy()
+    np.fill_diagonal(adj_sub, 0)  # Remove self-loops
 
-    # Get MNI coordinates for each ROI
-    coord1 = _get_roi_center(img1, label1)
-    coord2 = _get_roi_center(img2, label2)
+    # Extract edges
+    edges = []
+    node_degrees = np.zeros(len(indices))
+    n = len(indices)
+    for i in range(n):
+        for j in range(i + 1, n):
+            w = adj_sub[i, j]
+            if w != 0 and np.isfinite(w):
+                edges.append((i, j, w))
+                node_degrees[i] += abs(w)
+                node_degrees[j] += abs(w)
 
-    # Extract ROI metadata
-    name1 = roi_df.iloc[roi_index_1]['region_full_name']
-    name2 = roi_df.iloc[roi_index_2]['region_full_name']
-    roi_code1 = roi_df.iloc[roi_index_1]['roi_name']
-    roi_code2 = roi_df.iloc[roi_index_2]['roi_name']
+    # Apply top_n
+    if top_n and len(edges) > top_n:
+        edges = sorted(edges, key=lambda x: abs(x[2]), reverse=True)[:top_n]
+        # Rebuild sparse adjacency matrix
+        adj_sparse = np.zeros_like(adj_sub)
+        for i, j, w in edges:
+            adj_sparse[i, j] = adj_sparse[j, i] = w
+        adj_sub = adj_sparse
 
-    # Build 2x2 adjacency matrix
-    adj_matrix = np.array([[0, weight], [weight, 0]])
+    # === NODE COLORS: IDENTICAL TO 3D ===
+    if hasattr(px.colors.qualitative, node_cmap):
+        palette = getattr(px.colors.qualitative, node_cmap)
+    else:
+        palette = px.colors.sample_colorscale(node_cmap, len(indices))
+    node_colors = [palette[i % len(palette)] for i in range(len(indices))]
 
-    # Node colors: purple aesthetic
-    color1 = "#96336E"  # Deep magenta-purple
-    color2 = "#5b85df"  # Complementary blue-purple
-    node_colors = [color1, color2]
+    # Node sizes scaled by degree
+    max_deg = node_degrees.max() if node_degrees.max() > 0 else 1
+    node_sizes = [80 + (deg / max_deg) * 120 for deg in node_degrees]
 
-    # Create figure with light background
-    fig = plt.figure(figsize=(18, 12), facecolor='#faf9fc')
+    # === STYLING: NATURE STYLE ===
+    BG_COLOR = '#ffffff'
+    FONT_FAMILY = "Helvetica, Arial, sans-serif"
+    FONT_COLOR = '#222222'
+
+    fig = plt.figure(figsize=(16, 12), facecolor=BG_COLOR, dpi=150)
 
     # Plot connectome
     display = plotting.plot_connectome(
-        adjacency_matrix=adj_matrix,
-        node_coords=[coord1, coord2],
+        adjacency_matrix=adj_sub,
+        node_coords=coords,
         node_color=node_colors,
-        node_size=150,
-        edge_cmap="Purples",
-        edge_vmin=-1,
-        edge_vmax=1,
-        edge_threshold=None,
+        node_size=node_sizes,
+        edge_cmap=edge_cmap,
+        edge_vmin=0,  # Purples is sequential → use [0, max]
+        edge_vmax=adj_sub.max() if adj_sub.max() > 0 else 1,
         display_mode='ortho',
         black_bg=False,
-        alpha=0.4,
-        edge_kwargs={'linewidth': 3.0, 'alpha': 0.9},
+        figure=fig,
+        edge_kwargs={'linewidth': 4.0, 'alpha': 0.85},
         node_kwargs={
             'edgecolors': '#2d1b4e',
-            'linewidths': 2.5,
-            'alpha': 0.95,
+            'linewidths': 2.8,
+            'alpha': 0.97,
         },
-        colorbar=True,
-        figure=fig
+        colorbar=show_colorbar,
     )
 
-    # Create legend labels
-    legend_labels = [
-        f"{roi_code1} • {name1}",
-        f"{roi_code2} • {name2}"
-    ]
+    # Style colorbar
+    if show_colorbar and display.colorbar:
+        cbar = display.colorbar
+        cbar.set_label(
+            'Connection Strength',
+            fontsize=14,
+            fontfamily=FONT_FAMILY.split(',')[0],
+            color=FONT_COLOR,
+            labelpad=12
+        )
+        cbar.ax.tick_params(labelsize=12, colors=FONT_COLOR, pad=6)
+        for spine in cbar.ax.spines.values():
+            spine.set_edgecolor('#e0e0e0')
+            spine.set_linewidth(0.7)
 
-    # Create legend handles with styled markers
-    legend_handles = [
-        Line2D([0], [0], marker='o', color='w',
-               markerfacecolor=color1, markersize=20,
-               markeredgecolor='#2d1b4e', markeredgewidth=2,
-               label=legend_labels[0], linestyle=''),
-        Line2D([0], [0], marker='o', color='w',
-               markerfacecolor=color2, markersize=20,
-               markeredgecolor='#2d1b4e', markeredgewidth=2,
-               label=legend_labels[1], linestyle='')
-    ]
+    # Legend
+    if show_legend:
+        legend_labels = [
+            f"{row['roi_name']} • {row['region_full_name']}"
+            for _, row in roi_info.iterrows()
+        ]
+        legend_handles = [
+            Line2D([0], [0], marker='o', color='w',
+                   markerfacecolor=node_colors[i],
+                   markersize=16,
+                   markeredgecolor='#2d1b4e',
+                   markeredgewidth=2.2,
+                   label=legend_labels[i],
+                   linestyle='')
+            for i in range(len(indices))
+        ]
 
-    # Add styled legend
-    legend = fig.legend(
-        handles=legend_handles,
-        loc='upper right',
-        bbox_to_anchor=(0.3, 0.99),
-        fontsize=20,
-        frameon=True,
-        fancybox=True,
-        shadow=True,
-        edgecolor="#240b39",
-        facecolor='#fdfbff',
-        framealpha=0.95,
-        borderpad=1,
-        labelspacing=1.2
-    )
-    
-    # Style legend text
-    for text in legend.get_texts():
-        text.set_color("#110931")
-        text.set_fontfamily('sans-serif')
+        legend = fig.legend(
+            handles=legend_handles,
+            loc='upper left',
+            bbox_to_anchor=(0.02, 0.98),
+            fontsize=13,
+            frameon=True,
+            fancybox=False,
+            shadow=False,
+            edgecolor='#e0e0e0',
+            facecolor=BG_COLOR,
+            framealpha=1.0,
+            borderpad=0.7,
+            labelspacing=0.6,
+            ncol=1 if len(indices) <= 6 else 2  # Multi-column for many ROIs
+        )
 
-    # Ensure background color consistency
-    fig.patch.set_facecolor('#faf9fc')
+        for text in legend.get_texts():
+            text.set_color(FONT_COLOR)
+            text.set_fontfamily(FONT_FAMILY.split(',')[0])
 
-    # Add custom title if provided
+    # Title
     if title:
-        fig.suptitle(title, fontsize=24, color="#110931", y=0.98)
+        fig.suptitle(
+            title,
+            fontsize=22,
+            fontweight='bold',
+            color=FONT_COLOR,
+            y=0.96,
+            fontfamily=FONT_FAMILY.split(',')[0]
+        )
 
-    # Save or display
+    fig.patch.set_facecolor(BG_COLOR)
+    plt.tight_layout(rect=[0, 0, 1, 0.94])
+
+    # Save
     if save_path:
         plt.savefig(
             save_path,
             dpi=300,
             bbox_inches='tight',
-            facecolor='#faf9fc',
+            facecolor=BG_COLOR,
             edgecolor='none'
         )
         print(f"💾 Saved to {save_path}")
