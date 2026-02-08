@@ -208,7 +208,7 @@ def plot_roi_3d_connectivity(
             yanchor="top",
             y=0.85,           # ← TOP OF RIGHT COLUMN
             xanchor="center",
-            x=0.85,           # ← PERFECT ALIGNMENT: matches colorbar x
+            x=0.80,           # ← PERFECT ALIGNMENT: matches colorbar x
             bgcolor="rgba(255,255,255,0.5)",
             bordercolor="#e5e5e5",
             borderwidth=1,
