@@ -64,7 +64,7 @@ def _get_roi_coords(parc: Any, indices: List[int]) -> np.ndarray:
     return np.array(coords)
 
 
-def plot_roi_3d_connectivity(
+def plot_roi_connectivity_3d(
     indices: Union[int, List[int]],
     matrix: np.ndarray,
     parcellator: Any,
