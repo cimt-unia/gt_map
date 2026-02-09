@@ -56,23 +56,6 @@ ts = parcellator.parcellate_subject(
 
 
 
-### Visuals
-
-
-
-```python
-from gt_map import plot_selected_rois, plot_two_roi_connectivity
-
-# ROI plot
-plot_selected_rois([0, 1, 403, 405])
-
-# Connectivity plot
-plot_two_roi_connectivity(35, 413, weight=0.99)
-```
-
-These functions render brain maps overlaid with selected ROIs or pairwise connectivity strengths, facilitating rapid quality control and exploratory analysis.
-
-
 
 ---
 
@@ -108,6 +91,7 @@ The package includes the following files in **MNI152NLin6Asym** space:
 
 - **Nilearn team** for robust, open-source neuroimaging utilities  
   https://nilearn.github.io/
+
 
 
 
