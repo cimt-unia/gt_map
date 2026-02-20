@@ -107,7 +107,6 @@ def _create_legend_top_right(ax: plt.Axes, roi_names_full: List[str], colors: Li
         handletextpad=0.3
     )
 
-
 def _plot_atlas_rois(
     atlas_img: nib.Nifti1Image,
     labels: List[int],
@@ -115,7 +114,8 @@ def _plot_atlas_rois(
     roi_df: pd.DataFrame,
     title: str,
     cut_coords: Tuple[int, int, int],
-    cmap_name: str
+    cmap_name: str,
+    node_colors: Optional[List[str]] = None  # ← NEW: optional custom colors
 ) -> None:
     """
     Plot ROIs from a single atlas.
@@ -136,17 +136,17 @@ def _plot_atlas_rois(
         MNI coordinates for slice positions
     cmap_name : str
         Matplotlib colormap name
+    node_colors : List[str], optional
+        Custom hex/RGB colors for each ROI (e.g., ['#FF0000', '#00FF00']).
+        If None, uses colormap.
     """
     atlas_data = atlas_img.get_fdata().astype(int)
     mask = np.isin(atlas_data, labels)
     
-    # Fix for single ROI grey color issue:
-    # - Single ROI: normalize to intensity=1 for vivid color
-    # - Multiple ROIs: preserve original labels for differentiation
-    if len(labels) == 1:
-        selected_data = np.where(mask, 1, 0).astype(np.int32)
-    else:
-        selected_data = np.where(mask, atlas_data, 0).astype(np.int32)
+    # Assign sequential IDs (1, 2, 3...) to ensure consistent coloring
+    selected_data = np.zeros_like(atlas_data, dtype=np.int32)
+    for i, lbl in enumerate(labels):
+        selected_data[atlas_data == lbl] = i + 1
     
     selected_img = new_img_like(atlas_img, selected_data)
 
@@ -162,20 +162,22 @@ def _plot_atlas_rois(
     )
 
     roi_names_full = [roi_df.iloc[idx]['roi_name'] for idx in roi_indices]
-
-    # Handle different matplotlib versions
-    try:
-        cmap = plt.colormaps.get_cmap(cmap_name)
-    except AttributeError:
-        cmap = plt.cm.get_cmap(cmap_name)
-
     n = len(roi_names_full)
-    # Single ROI: use vivid color from colormap's upper range
-    # Multiple ROIs: distribute across colormap
-    if n == 1:
-        colors = [cmap(0.8)]  # Use bright end of colormap
+
+    # Generate colors
+    if node_colors is not None:
+        if len(node_colors) != n:
+            raise ValueError(f"Expected {n} colors, got {len(node_colors)}")
+        colors = node_colors
     else:
-        colors = cmap(np.linspace(0, 1, n))
+        try:
+            cmap = plt.colormaps.get_cmap(cmap_name)
+        except AttributeError:
+            cmap = plt.cm.get_cmap(cmap_name)
+        if n == 1:
+            colors = [cmap(0.8)]
+        else:
+            colors = [cmap(i / (n - 1)) for i in range(n)]
 
     _create_legend_top_right(plt.gca(), roi_names_full, colors)
     plotting.show()
@@ -186,7 +188,8 @@ def plot_selected_rois(
     title_prefix: str = "Selected ROIs",
     glasser_cut_coords: Tuple[int, int, int] = (5, -80, 10),
     tian_cut_coords: Tuple[int, int, int] = (0, 10, -8),
-    parcellator: Optional[GlasserTianParcellator] = None
+    parcellator: Optional[GlasserTianParcellator] = None,
+    node_colors: Optional[List[str]] = None  # ← NEW: optional custom colors
 ) -> None:
     """
     Plot selected ROIs by global index (0–413).
@@ -203,37 +206,33 @@ def plot_selected_rois(
         Cut coordinates for subcortical plots (auto-adjusted if default)
     parcellator : GlasserTianParcellator, optional
         Existing parcellator instance (creates new if None)
+    node_colors : List[str], optional
+        Custom colors for all ROIs (length must match indices). 
+        Order: [color_for_indices[0], color_for_indices[1], ...]
         
     Raises
     ------
     ValueError
-        If any index is outside range 0–413
+        If any index is outside range 0–413 or color length mismatch
     FileNotFoundError
         If roi_networks.csv is missing
     """
-    # Normalize to list
     if isinstance(indices, int):
         indices = [indices]
 
-    # Validate indices
     for idx in indices:
         if not (0 <= idx <= 413):
             raise ValueError(f"Index {idx} out of range (0–413)")
 
-    # Use provided or instantiate new parcellator
     parc = parcellator or GlasserTianParcellator()
-
-    # Load metadata
     roi_df_path = parc.atlas_dir / "roi_networks.csv"
     if not roi_df_path.exists():
         raise FileNotFoundError(f"Missing roi_networks.csv at {roi_df_path}")
     roi_df = pd.read_csv(roi_df_path)
 
-    # Separate cortical (0-359) and subcortical (360-413)
     glasser_indices = [i for i in indices if 0 <= i <= 359]
     tian_indices = [i for i in indices if 360 <= i <= 413]
 
-    # Print user-friendly info
     print(f"\nPlotting {len(indices)} ROI{'s' if len(indices) != 1 else ''}:")
     for idx in sorted(indices):
         row = roi_df.iloc[idx]
@@ -241,12 +240,21 @@ def plot_selected_rois(
         roi_code = row['roi_name']
         print(f"  • {full_name}, {roi_code}, (Index: {idx})")
 
+    # Split colors by atlas type if provided
+    glasser_colors = None
+    tian_colors = None
+    if node_colors is not None:
+        if len(node_colors) != len(indices):
+            raise ValueError(f"node_colors length ({len(node_colors)}) must match indices length ({len(indices)})")
+        # Map colors to indices by position
+        idx_to_color = dict(zip(indices, node_colors))
+        glasser_colors = [idx_to_color[idx] for idx in glasser_indices]
+        tian_colors = [idx_to_color[idx] for idx in tian_indices]
+
     # Plot cortical ROIs
     if glasser_indices:
         glasser_labels = [idx + 1 for idx in glasser_indices]
         DEFAULT_GLASSER = (5, -80, 10)
-        
-        # Auto-adjust cut coords if using default
         if glasser_cut_coords == DEFAULT_GLASSER:
             glasser_img = nib.load(parc.glasser_nii)
             cut_coords = _get_adaptive_cut_coords(glasser_img, glasser_labels)
@@ -260,15 +268,14 @@ def plot_selected_rois(
             roi_df=roi_df,
             title="Cortical",
             cut_coords=cut_coords,
-            cmap_name="coolwarm"
+            cmap_name="coolwarm",
+            node_colors=glasser_colors
         )
 
-    # Plot subcortical ROIs — NOW WITH ADAPTIVE COORDINATES!
+    # Plot subcortical ROIs
     if tian_indices:
         tian_labels = [idx - 360 + 1 for idx in tian_indices]
-        DEFAULT_TIAN = (0, 10, -8)  # ← Define default
-        
-        # Auto-adjust cut coords if using default
+        DEFAULT_TIAN = (0, 10, -8)
         if tian_cut_coords == DEFAULT_TIAN:
             tian_img = nib.load(parc.tian_nii)
             cut_coords = _get_adaptive_cut_coords(tian_img, tian_labels)
@@ -281,8 +288,9 @@ def plot_selected_rois(
             roi_indices=tian_indices,
             roi_df=roi_df,
             title="Subcortical",
-            cut_coords=cut_coords,  # ← Now adaptive!
-            cmap_name="cividis"
+            cut_coords=cut_coords,
+            cmap_name="cividis",
+            node_colors=tian_colors
         )
 
 
