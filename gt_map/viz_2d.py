@@ -108,6 +108,78 @@ def _create_legend_top_right(ax: plt.Axes, roi_names_full: List[str], colors: Li
     )
 
 
+def _plot_atlas_rois(
+    atlas_img: nib.Nifti1Image,
+    labels: List[int],
+    roi_indices: List[int],
+    roi_df: pd.DataFrame,
+    title: str,
+    cut_coords: Tuple[int, int, int],
+    cmap_name: str
+) -> None:
+    """
+    Plot ROIs from a single atlas.
+    
+    Parameters
+    ----------
+    atlas_img : nib.Nifti1Image
+        The atlas image
+    labels : List[int]
+        Atlas-specific labels to plot
+    roi_indices : List[int]
+        Global ROI indices for metadata lookup
+    roi_df : pd.DataFrame
+        DataFrame with ROI metadata
+    title : str
+        Plot title
+    cut_coords : Tuple[int, int, int]
+        MNI coordinates for slice positions
+    cmap_name : str
+        Matplotlib colormap name
+    """
+    atlas_data = atlas_img.get_fdata().astype(int)
+    mask = np.isin(atlas_data, labels)
+    
+    # Fix for single ROI grey color issue:
+    # - Single ROI: normalize to intensity=1 for vivid color
+    # - Multiple ROIs: preserve original labels for differentiation
+    if len(labels) == 1:
+        selected_data = np.where(mask, 1, 0).astype(np.int32)
+    else:
+        selected_data = np.where(mask, atlas_data, 0).astype(np.int32)
+    
+    selected_img = new_img_like(atlas_img, selected_data)
+
+    plt.figure(figsize=(12, 8))
+    plotting.plot_roi(
+        roi_img=selected_img,
+        title=title,
+        cut_coords=cut_coords,
+        display_mode="ortho",
+        black_bg=False,
+        colorbar=False,
+        cmap=cmap_name
+    )
+
+    roi_names_full = [roi_df.iloc[idx]['roi_name'] for idx in roi_indices]
+
+    # Handle different matplotlib versions
+    try:
+        cmap = plt.colormaps.get_cmap(cmap_name)
+    except AttributeError:
+        cmap = plt.cm.get_cmap(cmap_name)
+
+    n = len(roi_names_full)
+    # Single ROI: use vivid color from colormap's upper range
+    # Multiple ROIs: distribute across colormap
+    if n == 1:
+        colors = [cmap(0.8)]  # Use bright end of colormap
+    else:
+        colors = cmap(np.linspace(0, 1, n))
+
+    _create_legend_top_right(plt.gca(), roi_names_full, colors)
+    plotting.show()
+
 
 def plot_selected_rois(
     indices: Union[int, List[int]],
