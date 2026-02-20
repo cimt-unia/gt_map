@@ -180,8 +180,202 @@ def _plot_atlas_rois(
     _create_legend_top_right(plt.gca(), roi_names_full, colors)
     plotting.show()
 
-
 def plot_selected_rois(
+    indices: Union[int, List[int]],
+    title_prefix: str = "Selected ROIs",
+    glasser_cut_coords: Tuple[int, int, int] = (5, -80, 10),
+    tian_cut_coords: Tuple[int, int, int] = (0, 10, -8),
+    parcellator: Optional[GlasserTianParcellator] = None,
+    use_full_names_in_legend: bool = False,
+    save_dir: Optional[str] = None
+) -> None:
+    """
+    Plot selected ROIs by global index (0–413).
+    
+    Parameters
+    ----------
+    indices : int or List[int]
+        Global ROI indices to plot (0–413)
+    title_prefix : str, default="Selected ROIs"
+        Prefix for plot titles
+    glasser_cut_coords : Tuple[int, int, int], default=(5, -80, 10)
+        Cut coordinates for cortical plots (auto-adjusted if default)
+    tian_cut_coords : Tuple[int, int, int], default=(0, 10, -8)
+        Cut coordinates for subcortical plots (auto-adjusted if default)
+    parcellator : GlasserTianParcellator, optional
+        Existing parcellator instance (creates new if None)
+    use_full_names_in_legend : bool, default=False
+        If True, legend displays full anatomical name + hemisphere + system.
+    save_dir : str, optional
+        Directory to save high-quality PNGs (300 DPI). If None, plots are displayed.
+        
+    Raises
+    ------
+    ValueError
+        If any index is outside range 0–413
+    FileNotFoundError
+        If roi_networks.csv is missing
+    """
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from nilearn import plotting
+    from nilearn.image import new_img_like
+    from matplotlib.lines import Line2D
+
+    # Normalize to list
+    if isinstance(indices, int):
+        indices = [indices]
+
+    # Validate indices
+    for idx in indices:
+        if not (0 <= idx <= 413):
+            raise ValueError(f"Index {idx} out of range (0–413)")
+
+    # Use provided or instantiate new parcellator
+    parc = parcellator or GlasserTianParcellator()
+
+    # Load metadata
+    roi_df_path = parc.atlas_dir / "roi_networks.csv"
+    if not roi_df_path.exists():
+        raise FileNotFoundError(f"Missing roi_networks.csv at {roi_df_path}")
+    roi_df = pd.read_csv(roi_df_path)
+
+    # Separate cortical (0-359) and subcortical (360-413)
+    glasser_indices = [i for i in indices if 0 <= i <= 359]
+    tian_indices = [i for i in indices if 360 <= i <= 413]
+
+    # Print user-friendly info
+    print(f"\nPlotting {len(indices)} ROI{'s' if len(indices) != 1 else ''}:")
+    for idx in sorted(indices):
+        row = roi_df.iloc[idx]
+        full_name = row['region_full_name']
+        roi_code = row['roi_name']
+        print(f"  • {full_name}, {roi_code}, (Index: {idx})")
+
+    # Helper: create integrated plot for one atlas type
+    def _plot_single_atlas(indices_list, is_cortical=True):
+        if not indices_list:
+            return
+
+        # Map global indices → atlas labels
+        if is_cortical:
+            atlas_img = nib.load(parc.glasser_nii)
+            labels = [idx + 1 for idx in indices_list]
+            title = "Cortical"
+            cmap_name = "coolwarm"
+            DEFAULT_CUT = (5, -80, 10)
+            user_cut = glasser_cut_coords
+        else:
+            atlas_img = nib.load(parc.tian_nii)
+            labels = [idx - 360 + 1 for idx in indices_list]
+            title = "Subcortical"
+            cmap_name = "cividis"
+            DEFAULT_CUT = (0, 10, -8)
+            user_cut = tian_cut_coords
+
+        # Adaptive cut coords
+        if user_cut == DEFAULT_CUT:
+            cut_coords = _get_adaptive_cut_coords(atlas_img, labels)
+        else:
+            cut_coords = user_cut
+
+        # Build mask image
+        atlas_data = atlas_img.get_fdata().astype(int)
+        mask = np.isin(atlas_data, labels)
+        if len(labels) == 1:
+            selected_data = np.where(mask, 1, 0).astype(np.int32)
+        else:
+            selected_data = np.where(mask, atlas_data, 0).astype(np.int32)
+        selected_img = new_img_like(atlas_img, selected_data)
+
+        # Get unique non-zero labels for coloring
+        unique_labels = np.unique(selected_data[selected_data > 0])
+        n = len(unique_labels)
+
+        # Colormap
+        try:
+            cmap = plt.colormaps.get_cmap(cmap_name)
+        except AttributeError:
+            cmap = plt.cm.get_cmap(cmap_name)
+
+        # Generate consistent colors: map label → color
+        if n == 1:
+            # Use fixed position for single ROI
+            label_colors = {unique_labels[0]: cmap(0.8)}
+        else:
+            # Normalize label IDs to [0,1]
+            norm = plt.Normalize(vmin=unique_labels.min(), vmax=unique_labels.max())
+            label_colors = {lbl: cmap(norm(lbl)) for lbl in unique_labels}
+
+        # Map global index → color
+        roi_colors = []
+        legend_labels = []
+        for idx in indices_list:
+            if is_cortical:
+                lbl = idx + 1
+            else:
+                lbl = idx - 360 + 1
+            roi_colors.append(label_colors[lbl])
+            
+            if use_full_names_in_legend:
+                row = roi_df.iloc[idx]
+                label_str = f"{row['region_full_name']} ({row['hemisphere']}; {row['functional_system']})"
+            else:
+                label_str = roi_df.iloc[idx]['roi_name']
+            legend_labels.append(label_str)
+
+        # Plot
+        fig = plt.figure(figsize=(12, 8))
+        display = plotting.plot_roi(
+            roi_img=selected_img,
+            title=title,
+            cut_coords=cut_coords,
+            display_mode="ortho",
+            black_bg=False,
+            colorbar=False,
+            cmap=cmap_name,
+            figure=fig
+        )
+
+        # Custom legend with synchronized colors
+        handles = [
+            Line2D([0], [0], marker='s', color='w', markerfacecolor=color,
+                   markersize=10, linewidth=0, label=label)
+            for color, label in zip(roi_colors, legend_labels)
+        ]
+        ax = plt.gca()
+        ax.legend(
+            handles=handles,
+            loc='upper right',
+            bbox_to_anchor=(1.8, 1.0),
+            fontsize=9,
+            frameon=True,
+            fancybox=True,
+            edgecolor='gray'
+        )
+
+        # Save or show
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+            suffix = "cortical" if is_cortical else "subcortical"
+            path = os.path.join(save_dir, f"{title_prefix.replace(' ', '_')}_{suffix}.png")
+            plt.savefig(path, dpi=300, bbox_inches='tight', facecolor='white')
+            plt.close(fig)
+            print(f"✅ Saved: {path}")
+        else:
+            plotting.show()
+
+    # Plot both types
+    _plot_single_atlas(glasser_indices, is_cortical=True)
+    _plot_single_atlas(tian_indices, is_cortical=False)
+
+    if save_dir:
+        total = len(glasser_indices) + len(tian_indices)
+        if total > 0:
+            print(f"📊 Completed: {title_prefix}")
+
+def plot_selected_rois_o1(
     indices: Union[int, List[int]],
     title_prefix: str = "Selected ROIs",
     glasser_cut_coords: Tuple[int, int, int] = (5, -80, 10),
