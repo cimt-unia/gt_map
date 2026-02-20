@@ -107,7 +107,6 @@ def _create_legend_top_right(ax: plt.Axes, roi_names_full: List[str], colors: Li
         handletextpad=0.3
     )
 
-
 def _plot_atlas_rois(
     atlas_img: nib.Nifti1Image,
     labels: List[int],
@@ -122,30 +121,6 @@ def _plot_atlas_rois(
 ) -> None:
     """
     Plot ROIs from a single atlas.
-    
-    Parameters
-    ----------
-    atlas_img : nib.Nifti1Image
-        The atlas image
-    labels : List[int]
-        Atlas-specific labels to plot
-    roi_indices : List[int]
-        Global ROI indices for metadata lookup
-    roi_df : pd.DataFrame
-        DataFrame with ROI metadata
-    title : str
-        Plot title
-    cut_coords : Tuple[int, int, int]
-        MNI coordinates for slice positions
-    cmap_name : str
-        Matplotlib colormap name
-    node_colors : List[str], optional
-        Custom hex/RGB colors for each ROI (e.g., ['#FF0000', '#00FF00']).
-        If None, uses colormap.
-    output_file : str, optional
-        Path to save the figure (e.g., "figure.png"). If None, displays interactively.
-    dpi : int, default=300
-        Resolution for saved figures.
     """
     atlas_data = atlas_img.get_fdata().astype(int)
     
@@ -156,6 +131,30 @@ def _plot_atlas_rois(
     
     selected_img = new_img_like(atlas_img, selected_data)
 
+    roi_names_full = [roi_df.iloc[idx]['roi_name'] for idx in roi_indices]
+    n = len(roi_names_full)
+
+    # Generate colors and create a ListedColormap for exact control
+    if node_colors is not None:
+        if len(node_colors) != n:
+            raise ValueError(f"Expected {n} colors, got {len(node_colors)}")
+        # Convert to RGBA
+        colors_rgba = [plt.matplotlib.colors.to_rgba(c) for c in node_colors]
+    else:
+        try:
+            base_cmap = plt.colormaps.get_cmap(cmap_name)
+        except AttributeError:
+            base_cmap = plt.cm.get_cmap(cmap_name)
+        if n == 1:
+            colors_rgba = [base_cmap(0.5)]
+        else:
+            colors_rgba = [base_cmap(i / (n - 1)) for i in range(n)]
+
+    # Create a ListedColormap so label i+1 maps exactly to colors_rgba[i]
+    from matplotlib.colors import ListedColormap
+    custom_cmap = ListedColormap(colors_rgba)
+
+    # Plot with the custom colormap
     plt.figure(figsize=(12, 8))
     plotting.plot_roi(
         roi_img=selected_img,
@@ -164,29 +163,11 @@ def _plot_atlas_rois(
         display_mode="ortho",
         black_bg=False,
         colorbar=False,
-        cmap=cmap_name
+        cmap=custom_cmap  # ← CRITICAL: use exact colormap
     )
 
-    roi_names_full = [roi_df.iloc[idx]['roi_name'] for idx in roi_indices]
-    n = len(roi_names_full)
-
-    # Generate colors to match nilearn's internal mapping:
-    # nilearn uses Normalize(vmin=1, vmax=n) → label i maps to cmap((i-1)/(n-1)) for i=1..n
-    if node_colors is not None:
-        if len(node_colors) != n:
-            raise ValueError(f"Expected {n} colors, got {len(node_colors)}")
-        colors = [plt.matplotlib.colors.to_rgba(c) for c in node_colors]
-    else:
-        try:
-            cmap = plt.colormaps.get_cmap(cmap_name)
-        except AttributeError:
-            cmap = plt.cm.get_cmap(cmap_name)
-        if n == 1:
-            colors = [cmap(0.5)]
-        else:
-            colors = [cmap(i / (n - 1)) for i in range(n)]  # i = 0 → label 1, i = n-1 → label n
-
-    _create_legend_top_right(plt.gca(), roi_names_full, colors)
+    # Legend uses the same colors
+    _create_legend_top_right(plt.gca(), roi_names_full, colors_rgba)
 
     # Save or show
     if output_file:
@@ -195,7 +176,6 @@ def _plot_atlas_rois(
         plt.close()
     else:
         plotting.show()
-
 
 def plot_selected_rois(
     indices: Union[int, List[int]],
