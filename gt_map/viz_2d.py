@@ -106,7 +106,6 @@ def _create_legend_top_right(ax: plt.Axes, roi_names_full: List[str], colors: Li
         borderpad=0.5,
         handletextpad=0.3
     )
-
 def _plot_atlas_rois(
     atlas_img: nib.Nifti1Image,
     labels: List[int],
@@ -115,7 +114,9 @@ def _plot_atlas_rois(
     title: str,
     cut_coords: Tuple[int, int, int],
     cmap_name: str,
-    node_colors: Optional[List[str]] = None  # ← NEW: optional custom colors
+    node_colors: Optional[List[str]] = None,
+    output_file: Optional[str] = None,  # NEW: save path
+    dpi: int = 300  # NEW: resolution
 ) -> None:
     """
     Plot ROIs from a single atlas.
@@ -137,8 +138,11 @@ def _plot_atlas_rois(
     cmap_name : str
         Matplotlib colormap name
     node_colors : List[str], optional
-        Custom hex/RGB colors for each ROI (e.g., ['#FF0000', '#00FF00']).
-        If None, uses colormap.
+        Custom hex/RGB colors for each ROI. If None, uses colormap.
+    output_file : str, optional
+        Path to save the figure. If None, displays interactively.
+    dpi : int, default=300
+        Resolution for saved figures
     """
     atlas_data = atlas_img.get_fdata().astype(int)
     mask = np.isin(atlas_data, labels)
@@ -150,37 +154,60 @@ def _plot_atlas_rois(
     
     selected_img = new_img_like(atlas_img, selected_data)
 
-    plt.figure(figsize=(12, 8))
-    plotting.plot_roi(
-        roi_img=selected_img,
-        title=title,
-        cut_coords=cut_coords,
-        display_mode="ortho",
-        black_bg=False,
-        colorbar=False,
-        cmap=cmap_name
-    )
-
     roi_names_full = [roi_df.iloc[idx]['roi_name'] for idx in roi_indices]
     n = len(roi_names_full)
 
-    # Generate colors
+    # Generate colors - convert to rgba tuples for matplotlib
     if node_colors is not None:
         if len(node_colors) != n:
             raise ValueError(f"Expected {n} colors, got {len(node_colors)}")
-        colors = node_colors
+        # Convert hex/named colors to rgba tuples
+        colors_rgba = [plt.matplotlib.colors.to_rgba(c) for c in node_colors]
     else:
         try:
             cmap = plt.colormaps.get_cmap(cmap_name)
         except AttributeError:
             cmap = plt.cm.get_cmap(cmap_name)
         if n == 1:
-            colors = [cmap(0.8)]
+            colors_rgba = [cmap(0.8)]
         else:
-            colors = [cmap(i / (n - 1)) for i in range(n)]
+            colors_rgba = [cmap(i / (n - 1)) for i in range(n)]
 
-    _create_legend_top_right(plt.gca(), roi_names_full, colors)
-    plotting.show()
+    # Create custom colormap from our colors
+    from matplotlib.colors import ListedColormap, BoundaryNorm
+    custom_cmap = ListedColormap(colors_rgba)
+    
+    # Create bounds for normalization (0.5 to n+0.5 ensures each integer gets one color)
+    bounds = np.arange(0.5, n + 1.5, 1)
+    norm = BoundaryNorm(bounds, custom_cmap.N)
+
+    plt.figure(figsize=(12, 8))
+    display = plotting.plot_roi(
+        roi_img=selected_img,
+        title=title,
+        cut_coords=cut_coords,
+        display_mode="ortho",
+        black_bg=False,
+        colorbar=False,
+        cmap=custom_cmap,
+        resampling_interpolation="nearest"
+    )
+    
+    # Manually set the normalization on the display's axes
+    for ax in display.axes.values():
+        for img in ax.axes.get_images():
+            img.set_norm(norm)
+
+    # Create legend with matching colors
+    _create_legend_top_right(plt.gca(), roi_names_full, colors_rgba)
+    
+    # Save or show
+    if output_file:
+        plt.savefig(output_file, dpi=dpi, bbox_inches='tight')
+        print(f"Saved: {output_file}")
+        plt.close()
+    else:
+        plotting.show()
 
 
 def plot_selected_rois(
@@ -189,7 +216,9 @@ def plot_selected_rois(
     glasser_cut_coords: Tuple[int, int, int] = (5, -80, 10),
     tian_cut_coords: Tuple[int, int, int] = (0, 10, -8),
     parcellator: Optional[GlasserTianParcellator] = None,
-    node_colors: Optional[List[str]] = None  # ← NEW: optional custom colors
+    node_colors: Optional[List[str]] = None,
+    output_dir: Optional[Union[str, Path]] = None,  # NEW: output directory
+    dpi: int = 300  # NEW: resolution
 ) -> None:
     """
     Plot selected ROIs by global index (0–413).
@@ -209,6 +238,10 @@ def plot_selected_rois(
     node_colors : List[str], optional
         Custom colors for all ROIs (length must match indices). 
         Order: [color_for_indices[0], color_for_indices[1], ...]
+    output_dir : str or Path, optional
+        Directory to save figures. If None, displays interactively.
+    dpi : int, default=300
+        Resolution for saved figures
         
     Raises
     ------
@@ -229,6 +262,11 @@ def plot_selected_rois(
     if not roi_df_path.exists():
         raise FileNotFoundError(f"Missing roi_networks.csv at {roi_df_path}")
     roi_df = pd.read_csv(roi_df_path)
+
+    # Create output directory if specified
+    if output_dir:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     glasser_indices = [i for i in indices if 0 <= i <= 359]
     tian_indices = [i for i in indices if 360 <= i <= 413]
@@ -261,6 +299,10 @@ def plot_selected_rois(
         else:
             cut_coords = glasser_cut_coords
 
+        output_file = None
+        if output_dir:
+            output_file = output_dir / f"{title_prefix.replace(' ', '_').lower()}_cortical.png"
+
         _plot_atlas_rois(
             atlas_img=nib.load(parc.glasser_nii),
             labels=glasser_labels,
@@ -269,7 +311,9 @@ def plot_selected_rois(
             title="Cortical",
             cut_coords=cut_coords,
             cmap_name="coolwarm",
-            node_colors=glasser_colors
+            node_colors=glasser_colors,
+            output_file=output_file,
+            dpi=dpi
         )
 
     # Plot subcortical ROIs
@@ -282,6 +326,10 @@ def plot_selected_rois(
         else:
             cut_coords = tian_cut_coords
 
+        output_file = None
+        if output_dir:
+            output_file = output_dir / f"{title_prefix.replace(' ', '_').lower()}_subcortical.png"
+
         _plot_atlas_rois(
             atlas_img=nib.load(parc.tian_nii),
             labels=tian_labels,
@@ -290,9 +338,10 @@ def plot_selected_rois(
             title="Subcortical",
             cut_coords=cut_coords,
             cmap_name="cividis",
-            node_colors=tian_colors
+            node_colors=tian_colors,
+            output_file=output_file,
+            dpi=dpi
         )
-
 
 def plot_roi_connectivity_2d(
     roi_index_1: int,
