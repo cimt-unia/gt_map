@@ -84,7 +84,7 @@ def plot_roi_connectivity_3d(
     if parcellator is None: raise ValueError("❌ Parcellator required.")
 
     # Load Data
-    roi_df = pd.read_csv(parcellator.atlas_dir / "roi_networks.csv")
+    roi_df = pd.read_csv(parcellator.atlas_dir / "roi_labels.csv")
     selected_coords = _get_roi_coords(parcellator, indices)
     roi_info = roi_df.iloc[indices].reset_index(drop=True)
 
