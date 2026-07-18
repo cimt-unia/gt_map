@@ -215,7 +215,7 @@ def plot_selected_rois(
     ValueError
         If any index is outside range 0–413 or color length mismatch
     FileNotFoundError
-        If roi_networks.csv is missing
+        If roi_labels.csv is missing
     """
     if isinstance(indices, int):
         indices = [indices]
@@ -225,9 +225,9 @@ def plot_selected_rois(
             raise ValueError(f"Index {idx} out of range (0–413)")
 
     parc = parcellator or GlasserTianParcellator()
-    roi_df_path = parc.atlas_dir / "roi_networks.csv"
+    roi_df_path = parc.atlas_dir / "roi_labels.csv"
     if not roi_df_path.exists():
-        raise FileNotFoundError(f"Missing roi_networks.csv at {roi_df_path}")
+        raise FileNotFoundError(f"Missing roi_labels.csv at {roi_df_path}")
     roi_df = pd.read_csv(roi_df_path)
 
     glasser_indices = [i for i in indices if 0 <= i <= 359]
@@ -338,7 +338,7 @@ def plot_roi_connectivity_2d(
     
     # Initialize parcellator
     parc = parcellator or GlasserTianParcellator()
-    roi_df = pd.read_csv(parc.atlas_dir / "roi_networks.csv")
+    roi_df = pd.read_csv(parc.atlas_dir / "roi_labels.csv")
     
     # Get atlas images and labels
     def get_atlas_and_label(idx):
