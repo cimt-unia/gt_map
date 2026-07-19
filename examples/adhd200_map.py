@@ -51,9 +51,9 @@ def get_n_timepoints(img_path):
 # MAIN PIPELINE
 # =============================================================================
 def main():
-    logger.info("📥 Loading ADHD-200 phenotype...")
+    logger.info("Loading ADHD-200 phenotype...")
     df = pd.read_csv(PHENO_PATH)
-    logger.info(f"✅ Starting with {len(df)} fMRI runs (all subjects × all runs).")
+    logger.info(f"Starting with {len(df)} fMRI runs (all subjects × all runs).")
 
     # Rebuild fMRI paths
     def get_fMRI_path(row):
@@ -66,10 +66,10 @@ def main():
     df["fMRI_path"] = df.apply(get_fMRI_path, axis=1)
     initial_n = len(df)
     df = df.dropna(subset=["fMRI_path"]).reset_index(drop=True)
-    logger.info(f"✅ Kept {len(df)} runs with existing fMRI files (dropped {initial_n - len(df)}).")
+    logger.info(f"Kept {len(df)} runs with existing fMRI files (dropped {initial_n - len(df)}).")
 
     # Pre-screen for valid 4D fMRI with ≥20 timepoints
-    logger.info("🔍 Pre-screening runs for valid fMRI with ≥20 timepoints...")
+    logger.info("Pre-screening runs for valid fMRI with ≥20 timepoints...")
     valid_mask = []
     fmri_paths_filtered = []
     tr_values_filtered = []
@@ -93,10 +93,10 @@ def main():
     df = df[valid_mask].reset_index(drop=True)
     fmri_paths = fmri_paths_filtered
     tr_values = np.array(tr_values_filtered, dtype=np.float32)
-    logger.info(f"✅ Proceeding with {len(fmri_paths)} valid fMRI runs.")
+    logger.info(f"Proceeding with {len(fmri_paths)} valid fMRI runs.")
 
-    # ✅ Use gt_map with BUNDLED ATLASES — no ATLAS_DIR needed!
-    logger.info("🚀 Parcellating with Glasser+Tian atlases (bundled)...")
+    # Use gt_map with BUNDLED ATLASES — no ATLAS_DIR needed!
+    logger.info("Parcellating with Glasser+Tian atlases (bundled)...")
     parcellator = GlasserTianParcellator()  # ← Clean, no path required
 
     processed_data, valid_indices = parcellator.process_dataset(
@@ -142,12 +142,12 @@ def main():
 
     # Final report
     logger.info("\n" + "=" * 60)
-    logger.info("🎉 ADHD-200 Parcellation (All Runs) Complete!")
-    logger.info(f"✅ Processed: {len(processed_data)} fMRI runs")
-    logger.info(f"✅ Output shape per run: (150, 414)")
+    logger.info("ADHD-200 Parcellation (All Runs) Complete!")
+    logger.info(f"Processed: {len(processed_data)} fMRI runs")
+    logger.info(f"Output shape per run: (150, 414)")
     logger.info("=" * 60)
 
-    print("\n📊 Sample phenotype (run-level):")
+    print("\nSample phenotype (run-level):")
     print(pheno_adhd.head(3))
     print(f"\nClass balance (ADHD=1): {pheno_adhd['ADHD'].value_counts().to_dict()}")
     print(f"\nTotal unique subjects: {pheno_adhd['subject_id'].nunique()}")
