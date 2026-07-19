@@ -194,25 +194,7 @@ Use this guide to interpret connectivity results in your neuroimaging analyses.
 
 ---
 
-## ✅ Summary: Relevance to Motor Phase Transitions
 
-If studying **bimanual coordination** or **movement phase transitions**, these systems are key:
-
-| System | Role |
-|-------|------|
-| **Motor (Primary/Premotor)** | Executes and plans movement sequences |
-| **Somatosensory** | Monitors limb position and contact |
-| **Dorsal Attention** | Tracks hand position in space |
-| **Ventral Attention** | Detects unexpected errors or cues |
-| **Basal Ganglia** | Gates transitions between movement phases |
-| **Cingulo-Opercular** | Monitors performance, detects errors |
-| **Visual Dorsal** | Guides hand toward targets |
-
-> 💡 **Interpretation tip**: When analyzing significant connections, ask:  
-> **“Which two systems are talking, and why would they coordinate during phase transitions?”**
-
-Example:  
-> *"Increased connectivity between **Premotor Cortex** and **Inferior Parietal Lobule** suggests enhanced sensorimotor integration during movement transitions."*
 
 ---
 
