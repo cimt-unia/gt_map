@@ -1,5 +1,5 @@
 # abide_map.py
-# Optimized ABIDE Parcellation using gt_map
+# ABIDE Parcellation using gt_map
 # Output: (150 timepoints × 414 ROIs) fMRI + standardized phenotype
 
 import numpy as np
@@ -121,15 +121,15 @@ def main():
 
     # Final summary
     logger.info("\n" + "=" * 60)
-    logger.info("🎉 ABIDE Parcellation Complete!")
-    logger.info(f"✅ Processed: {len(processed_data)} / {len(abide.func_preproc)} subjects")
-    logger.info(f"✅ Saved fMRI: {OUTPUT_DIR / 'fmri_ASD.npz'}")
-    logger.info(f"✅ Saved phenotype: {OUTPUT_DIR / 'pheno_ASD.csv'}")
-    logger.info(f"✅ Shape per subject: ({int(TARGET_DURATION / TARGET_TR)}, 414)")
-    logger.info(f"✅ Duration: {TARGET_DURATION}s | TR: {TARGET_TR}s")
+    logger.info("ABIDE Parcellation Complete!")
+    logger.info(f"Processed: {len(processed_data)} / {len(abide.func_preproc)} subjects")
+    logger.info(f"Saved fMRI: {OUTPUT_DIR / 'fmri_ASD.npz'}")
+    logger.info(f"Saved phenotype: {OUTPUT_DIR / 'pheno_ASD.csv'}")
+    logger.info(f"Shape per subject: ({int(TARGET_DURATION / TARGET_TR)}, 414)")
+    logger.info(f"Duration: {TARGET_DURATION}s | TR: {TARGET_TR}s")
     logger.info("=" * 60)
 
-    print("\n📊 Sample phenotype:")
+    print("\nSample phenotype:")
     print(pheno_analysis.head(3))
     print(f"\nClass balance (ASD=1): {pheno_analysis['ASD'].value_counts().to_dict()}")
 
