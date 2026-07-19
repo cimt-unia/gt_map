@@ -74,9 +74,11 @@ def plot_roi_connectivity_3d(
     node_cmap: str = 'Pastel1',
     show_labels_on_map: bool = False,
     show_legend: bool = True,
-    show_colorbar: bool = True,
+    show_colorbar: bool = False,
     title: str = "",
     save_path: Optional[Union[str, Path]] = None,
+    node_size_scale: float = 1.0,
+    edge_width_scale: float = 1.0,
 ) -> go.Figure:
     """3D brain connectivity plot with Nature-style aesthetics.
 
@@ -104,6 +106,10 @@ def plot_roi_connectivity_3d(
         Plot title.
     save_path : str or Path, optional
         If provided, save the figure as HTML.
+    node_size_scale : float, optional
+        Global multiplier for node marker sizes. Default is 1.0.
+    edge_width_scale : float, optional
+        Global multiplier for edge line widths. Default is 1.0.
 
     Returns
     -------
@@ -162,7 +168,7 @@ def plot_roi_connectivity_3d(
 
         for edge in edges:
             color_hex = to_hex(cmap_func(edge['weight'] / max_w))
-            width = 2 + (edge['weight'] / max_w) * 6
+            width = (2 + (edge['weight'] / max_w) * 6) * edge_width_scale
             fig.add_trace(go.Scatter3d(
                 x=[edge['coord1'][0], edge['coord2'][0]],
                 y=[edge['coord1'][1], edge['coord2'][1]],
@@ -195,7 +201,7 @@ def plot_roi_connectivity_3d(
     for i, row in roi_info.iterrows():
         color = palette[i % len(palette)]
         max_deg = node_degrees.max() if node_degrees.max() > 0 else 1
-        size = 8 + (node_degrees[i] / max_deg) * 15
+        size = (8 + (node_degrees[i] / max_deg) * 15) * node_size_scale
 
         fig.add_trace(go.Scatter3d(
             x=[selected_coords[i, 0]], y=[selected_coords[i, 1]], z=[selected_coords[i, 2]],
