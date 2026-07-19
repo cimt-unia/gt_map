@@ -1,4 +1,7 @@
 # Neuroanatomical Atlas Documentation  
+
+
+
 **ROI Functional Annotation Guide**
 
 This atlas combines:
@@ -13,190 +16,193 @@ Each ROI is annotated with:
 
 Use this guide to interpret connectivity results in your neuroimaging analyses.
 
----
 
-## 🔵 1. Visual System
+<br>
 
-### 📌 `EarlyRetinotopic` (V1, V2, V3)
+## 1. Visual System
+
+### EarlyRetinotopic (V1, V2, V3)
 - **Function**: Low-level visual processing — detects edges, orientation, motion, color.
 - **Location**: Occipital lobe.
 - **Note**: V1 is the first cortical area to receive visual input (via thalamus).
 
-### 📌 `Dorsal` (V3A, V6, V7, MT/MST, IPS areas)
+### Dorsal (V3A, V6, V7, MT/MST, IPS areas)
 - **Function**: **“Where/How” pathway** — processes spatial location, motion, depth, and visuomotor coordination (e.g., reaching).
 - **Pathway**: Dorsal stream → parietal lobe → guides action.
 
-### 📌 `Ventral` (V4, V8, FFC, PIT, TE, PHC, VVC)
+### Ventral (V4, V8, FFC, PIT, TE, PHC, VVC)
 - **Function**: **“What” pathway** — recognizes objects, faces, colors, scenes.
   - **FFC** = Fusiform Face Complex → face recognition  
   - **PHC/PHT** = Parahippocampal areas → scene/place processing
 - **Pathway**: Ventral stream → temporal lobe → supports perception and memory.
 
-### 📌 `Lateral` (LO1, LO2, LO3)
+### Lateral (LO1, LO2, LO3)
 - **Function**: Object shape and form processing — bridges dorsal and ventral streams.
 
----
 
-## 🟢 2. Motor System
+<br>
 
-### 📌 `Primary` (Area 4 / M1)
+## 2. Motor System
+
+### Primary (Area 4 / M1)
 - **Function**: Executes voluntary movements — sends signals to spinal cord to move muscles.
 - **Organization**: Somatotopic ("motor homunculus").
 
-### 📌 `Premotor` (6d, 6v, 6a, 55b, 6r)
+### Premotor (6d, 6v, 6a, 55b, 6r)
 - **Function**: Plans movements based on external cues (e.g., reaching toward a light).
 - **6v** = Ventral premotor → hand/mouth actions, mirror neurons.
 
-### 📌 `Supplementary` (6ma, 6mp, SCEF)
+### Supplementary (6ma, 6mp, SCEF)
 - **Function**: Internally guided actions, sequence planning, bimanual coordination.
 - **SCEF** = Supplementary and Cingulate Eye Fields → controls voluntary eye movements.
 
----
 
-## 🟠 3. Somatosensory System
+<br>
 
-### 📌 `Primary` (3a, 3b, 1, 2)
+## 3. Somatosensory System
+
+### Primary (3a, 3b, 1, 2)
 - **Function**: Processes touch, pressure, vibration, proprioception.
   - **3a**: Muscle stretch (proprioception)  
   - **3b/1**: Light touch  
   - **2**: Object shape/texture (stereognosis)
 
-### 📌 `Association` (5m, 5mv, 5L)
+### Association (5m, 5mv, 5L)
 - **Function**: Integrates touch + vision + motor → understands object properties during manipulation.
 
-### 📌 `Operculum` (OP1–4)
+### Operculum (OP1–4)
 - **Function**: Pain, temperature, visceral sensation, and speech articulation (OP4 = mouth area).
 
----
 
-## 🔴 4. Dorsal Attention Network
+<br>
 
-### 📌 `Frontal` (FEF)
+## 4. Dorsal Attention Network
+
+### Frontal (FEF)
 - **Function**: Top-down control of visual attention — directs eyes to relevant locations.
 
-### 📌 `Parietal` (PEF, IPS1, LIP, VIP, MIP, 7A/7P)
+### Parietal (PEF, IPS1, LIP, VIP, MIP, 7A/7P)
 - **Function**: Spatial awareness, eye movement planning, multisensory integration.
 - **LIP** = priority map of behaviorally relevant locations.
 
-> ✅ **Together**: FEF + Parietal = *"When I decide to look left, these areas activate first."*
+> **Together**: FEF + Parietal = *"When I decide to look left, these areas activate first."*
 
----
 
-## 🟣 5. Ventral Attention Network
+<br>
 
-### 📌 `Temporal`, `Junction`, `Vestibular` (STS, TPOJ, PI, AIP)
+## 5. Ventral Attention Network
+
+### Temporal, Junction, Vestibular (STS, TPOJ, PI, AIP)
 - **Function**: Reorients attention to unexpected stimuli (e.g., sudden sound).
   - **STS** = biological motion, voice, lip reading  
   - **AIP** = transforms object shape into hand posture (grasping)  
   - **TPOJ** = tool use, biological motion
 
-> ⚠️ **Not for sustained attention** — for **"Oops, what was that?"** responses.
+> **Note**: Not for sustained attention — for **"Oops, what was that?"** responses.
 
----
 
-## 🟤 6. Language System
+<br>
 
-### 📌 `Broca` (44, 45)
+## 6. Language System
+
+### Broca (44, 45)
 - **Function**: Speech production, grammar, complex syntax.
   - **44** = Pars opercularis → articulation  
   - **45** = Pars triangularis → semantics
 
-### 📌 `Perisylvian` / `Parainsular` / `Retroinsular`
+### Perisylvian / Parainsular / Retroinsular
 - **Function**: Speech perception, phonological processing, auditory-motor integration (part of Wernicke’s network).
 
-### 📌 `SFL` (Superior Frontal Language)
+### SFL (Superior Frontal Language)
 - **Function**: Higher-order language control, narrative comprehension.
 
----
 
-## ⚪ 7. Default Mode Network (DMN)
+<br>
+
+## 7. Default Mode Network (DMN)
 
 > Active during rest, mind-wandering, memory, self-referential thought.
 
-### 📌 `Prefrontal` (9, 10, 8B)
+### Prefrontal (9, 10, 8B)
 - **Function**: Autobiographical memory, future planning, theory of mind.
 
-### 📌 `Parietal` (PG, PF, IP)
+### Parietal (PG, PF, IP)
 - **Function**: Episodic memory retrieval, semantic integration.
 
-### 📌 `PosteriorCingulate` / `Retrosplenial`
+### PosteriorCingulate / Retrosplenial
 - **Function**: Memory consolidation, spatial navigation, scene construction.
 - **Note**: One of the brain’s most connected and metabolically active hubs.
 
-### 📌 `Precuneus`
+### Precuneus
 - **Function**: Visuospatial imagery, self-consciousness, episodic memory.
 
----
 
-## 🟡 8. Cingulo-Opercular Network (CO)
+<br>
+
+## 8. Cingulo-Opercular Network (CO)
 
 > Stable task control, error monitoring, pain/affect regulation.
 
-### 📌 `AnteriorCingulate`, `MidCingulate`, `SubgenualCingulate`
+### AnteriorCingulate, MidCingulate, SubgenualCingulate
 - **dACC**: Conflict monitoring, effortful control  
 - **sgACC**: Emotion regulation, mood (implicated in depression)  
 - **Midcingulate**: Pain perception, motor pain responses
 
-### 📌 `Insula`, `FrontalOperculum`
+### Insula, FrontalOperculum
 - **Function**: Interoception (internal body state), empathy, disgust, addiction.
 - **Anterior Insula** = *"How do I feel right now?"*
 
----
 
-## 🟢 9. Limbic System
+<br>
 
-### 📌 `Orbitofrontal` (47, OFC)
+## 9. Limbic System
+
+### Orbitofrontal (47, OFC)
 - **Function**: Reward valuation, decision-making, emotional regulation.
 - **Key question**: *"Is this worth it?"*
 
-### 📌 `MedialTemporal` (Hippocampus, Entorhinal, Perirhinal)
+### MedialTemporal (Hippocampus, Entorhinal, Perirhinal)
 - **Function**: Episodic memory, spatial navigation.
   - **Hippocampus** = cognitive map  
   - **Entorhinal cortex** = "grid cells"
 
-### 📌 `Amygdala`
+### Amygdala
 - **Function**: Fear processing, emotional salience, threat detection.
 
-### 📌 `Parahippocampal`
+### Parahippocampal
 - **Function**: Scene/place recognition, contextual memory.
 
----
 
-## 🔴 10. Basal Ganglia
+<br>
+
+## 10. Basal Ganglia
 
 > **Modulates** (does not initiate) cortical activity via cortico-basal ganglia-thalamo-cortical loops.
 
-### 📌 `Striatum` (Caudate, Putamen, NAc)
+### Striatum (Caudate, Putamen, NAc)
 - **Caudate**: Cognitive loops (planning, working memory)  
 - **Putamen**: Sensorimotor loops (habit learning, movement scaling)  
 - **NAc**: Reward, motivation, addiction
 
-### 📌 `Pallidum` (GPi/GPe)
+### Pallidum (GPi/GPe)
 - **Function**: Output nuclei — inhibit thalamus to **gate movement**.
 - **Clinical**: Parkinson’s = dopamine loss → excessive inhibition → akinesia.
 
----
 
-## 🔵 11. Thalamus
+<br>
+
+## 11. Thalamus
 
 - **Function**: Relay station for **all sensory input** (except smell) to cortex.
 - **Also**: Gating attention — filters irrelevant signals during sleep/focus.
 
----
 
-## ⚪ 12. Auditory System
+<br>
 
-### 📌 `Core` (A1)
+## 12. Auditory System
+
+### Core (A1)
 - **Function**: Basic sound frequency/timing analysis.
 
-### 📌 `Belt` / `Association` (A4, A5, PBelt, MBelt)
+### Belt / Association (A4, A5, PBelt, MBelt)
 - **Function**: Complex sound processing — speech, music, environmental sounds.
-
----
-
-
-
----
-
-> **This documentation is intended for scientific interpretation of connectivity results.**  
-> Always validate findings with behavioral or clinical context.
