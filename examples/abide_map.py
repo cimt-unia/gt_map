@@ -1,5 +1,5 @@
 # abide_map.py
-# ABIDE Parcellation using gt_map
+# ABIDE Parcellation
 # Output: (150 timepoints × 414 ROIs) fMRI + standardized phenotype
 
 import numpy as np
