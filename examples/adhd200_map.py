@@ -1,5 +1,5 @@
 # adhd200_map.py
-# ADHD-200 Parcellation using gt_map
+# ADHD-200 Parcellation
 # Output: (150 timepoints × 414 ROIs) fMRI + standardized run-level phenotype
 
 
