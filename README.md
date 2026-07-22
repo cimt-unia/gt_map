@@ -8,7 +8,8 @@ A robust, memory-efficient fMRI parcellation tool using:
 GT-MAP enables reproducible time series extraction across heterogeneous datasets—without discarding subjects due to non-standard TR or short scan durations.  
 **Atlases are bundled with the package**, so no external downloads are required.
 
----
+<br>
+
 
 ## Features
 
@@ -21,7 +22,8 @@ GT-MAP enables reproducible time series extraction across heterogeneous datasets
 
 Designed for ABIDE, UK Biobank, ADHD-200, and other multi-site fMRI studies.
 
----
+<br>
+
 
 ## 📦 Installation
 
@@ -33,7 +35,7 @@ pip install git+https://github.com/cimt-unia/gt_map.git
 
 > **Requirements**: Python ≥3.9, `nilearn≥0.9`, `numpy`, `pandas`, `scipy`, `joblib`
 
----
+<br>
 
 ## Usage
 
@@ -57,7 +59,8 @@ ts = parcellator.parcellate_subject(
 
 
 
----
+<br>
+
 
 
 
@@ -74,7 +77,8 @@ The package includes the following files in **MNI152NLin6Asym** space:
 
 
 
----
+<br>
+
 
 
 
