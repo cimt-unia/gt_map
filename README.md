@@ -25,7 +25,7 @@ Designed for ABIDE, UK Biobank, ADHD-200, and other multi-site fMRI studies.
 <br>
 
 
-## 📦 Installation
+## Installation
 
 Install directly from GitHub:
 
